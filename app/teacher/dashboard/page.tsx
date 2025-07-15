@@ -53,7 +53,7 @@ export default function TeacherDashboard() {
   const [bookingRequests] = useState([
     {
       id: 1,
-      studentName: "Alice Johnson",
+      studentName: "Adnan faisal",
       gigTitle: "Advanced Mathematics Tutoring",
       requestedTime: "2024-01-15 14:00",
       message: "I need help with differential equations",
@@ -61,7 +61,7 @@ export default function TeacherDashboard() {
     },
     {
       id: 2,
-      studentName: "Bob Smith",
+      studentName: "Swapnil sorkar",
       gigTitle: "Calculus Made Easy",
       requestedTime: "2024-01-16 10:00",
       message: "Looking forward to learning calculus basics",
