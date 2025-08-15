@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Search, Star, Clock, BookOpen, Code, Languages, FlaskConical } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
 
 const categories = [
     { key: "mathematics", label: "Mathematics", icon: BookOpen },
@@ -58,36 +60,73 @@ const gigs = [
 ]
 
 export default function BrowsePage() {
+    const router = useRouter()
+    const searchParams = useSearchParams()
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
     const [priceRange, setPriceRange] = useState("all")
+    const [loading, setLoading] = useState(false)
+
+    // Initialize category from URL (e.g., /browse?category=mathematics)
+    useEffect(() => {
+        const cat = searchParams.get("category")
+        if (cat && cat !== selectedCategory) {
+            setSelectedCategory(cat)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams])
+
+    // Simulate dynamic loading when category changes
+    useEffect(() => {
+        if (!selectedCategory) return
+        setLoading(true)
+        const t = setTimeout(() => setLoading(false), 300)
+        return () => clearTimeout(t)
+    }, [selectedCategory])
+
+    // NOTE: Removed Popular gigs (kept dynamic and clean per new design)
 
     if (!selectedCategory) {
         // Show category grid
         return (
-            <div className="container mx-auto px-4 py-10">
+            <div className="container mx-auto px-4 py-12">
                 <div className="text-center">
-                    <div className="max-w-2xl mx-auto mb-12">
-                        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    <div className="max-w-3xl mx-auto mb-12">
+                        <div className="inline-flex items-center rounded-full border bg-white/70 dark:bg-white/5 backdrop-blur px-3 py-1 text-xs text-muted-foreground mb-4">
+                            Explore subjects
+                        </div>
+                        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
                             Browse by Category
                         </h1>
-                        <p className="text-xl text-muted-foreground mb-6">
-                            Choose a category to discover amazing gigs and teachers.
+                        <p className="text-lg md:text-xl text-muted-foreground mb-6">
+                            Pick a category to discover tailored gigs from expert teachers.
                         </p>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-5 sm:gap-6 max-w-4xl mx-auto">
                         {categories.map((cat) => {
                             const Icon = cat.icon
                             return (
                                 <Card
                                     key={cat.key}
-                                    className="flex flex-col items-center justify-center p-8 cursor-pointer border-2 transition-transform hover:scale-105 hover:border-primary/40 bg-white/80 dark:bg-gray-900/80 shadow-md hover:shadow-xl"
-                                    onClick={() => setSelectedCategory(cat.key)}
+                                    className="group relative overflow-hidden border-2 hover:border-primary/30 transition-colors rounded-2xl"
+                                    onClick={() => {
+                                        setSelectedCategory(cat.key)
+                                        router.push(`/browse?category=${cat.key}`)
+                                    }}
                                 >
-                                    <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4 bg-gradient-to-br from-blue-100 via-white to-purple-100 dark:from-blue-900 dark:via-gray-800 dark:to-purple-900">
-                                        <Icon className="h-10 w-10 text-primary" />
+                                    <div className="absolute -top-12 -right-12 h-24 w-24 rounded-full bg-gradient-to-br from-primary/10 to-purple-500/10 blur-2xl" />
+                                    <div className="p-6 flex flex-col items-center text-center">
+                                        <div className="h-14 w-14 rounded-xl grid place-items-center mb-3 bg-gradient-to-br from-primary/10 to-purple-500/10 text-primary">
+                                            <Icon className="h-7 w-7" />
+                                        </div>
+                                        <div className="font-semibold text-base md:text-lg">
+                                            {cat.label}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground mt-1">Explore gigs</div>
+                                        <div className="mt-4 opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all text-sm text-primary inline-flex items-center gap-1">
+                                            Explore <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                                        </div>
                                     </div>
-                                    <div className="text-lg font-semibold mb-1">{cat.label}</div>
                                 </Card>
                             )
                         })}
@@ -114,7 +153,13 @@ export default function BrowsePage() {
     return (
         <div className="container mx-auto px-4 py-10">
             <div className="flex items-center mb-8 gap-4">
-                <Button variant="outline" onClick={() => setSelectedCategory(null)}>
+                <Button
+                    variant="outline"
+                    onClick={() => {
+                        setSelectedCategory(null)
+                        router.push("/browse")
+                    }}
+                >
                     &larr; Back to Categories
                 </Button>
                 <h2 className="text-2xl font-bold">{categoryLabel} Gigs</h2>
@@ -151,50 +196,52 @@ export default function BrowsePage() {
                 </CardContent>
             </Card>
             {/* Available Gigs */}
-            <div className="grid gap-6">
+            {loading && (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <Card key={i} className="overflow-hidden rounded-2xl">
+                            <div className="aspect-video w-full animate-pulse bg-muted" />
+                            <CardContent className="p-4">
+                                <div className="h-4 w-24 bg-muted animate-pulse rounded mb-2" />
+                                <div className="h-5 w-3/4 bg-muted animate-pulse rounded mb-3" />
+                                <div className="h-4 w-1/2 bg-muted animate-pulse rounded" />
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredGigs.length === 0 ? (
-                    <div className="text-center text-muted-foreground py-12">No gigs found in this category.</div>
+                    <div className="col-span-full text-center text-muted-foreground py-12">No gigs found in this category.</div>
                 ) : (
                     filteredGigs.map((gig) => (
-                        <Card key={gig.id} className="hover:shadow-lg transition-shadow">
-                            <CardContent className="p-6">
-                                <div className="flex gap-6">
-                                    <img
-                                        src={gig.image || "/placeholder.svg"}
-                                        alt={gig.teacher}
-                                        className="w-16 h-16 rounded-full object-cover"
-                                    />
-                                    <div className="flex-1">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div>
-                                                <h3 className="text-xl font-semibold mb-1">{gig.title}</h3>
-                                                <p className="text-muted-foreground">by {gig.teacher}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-2xl font-bold text-primary">${gig.price}</div>
-                                                <div className="text-sm text-muted-foreground">per hour</div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4 mb-3">
-                                            <Badge variant="secondary">{categoryLabel}</Badge>
-                                            <div className="flex items-center gap-1">
-                                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                                <span className="font-medium">{gig.rating}</span>
-                                                <span className="text-muted-foreground">({gig.reviews} reviews)</span>
-                                            </div>
-                                            <div className="flex items-center gap-1 text-muted-foreground">
-                                                <Clock className="h-4 w-4" />
-                                                {gig.duration} min
-                                            </div>
-                                        </div>
-                                        <p className="text-muted-foreground mb-4">{gig.description}</p>
-                                        <div className="flex justify-between items-center">
-                                            <div className="text-sm text-muted-foreground">Next available: {gig.nextAvailable}</div>
-                                            <div className="flex gap-2">
-                                                <Button variant="outline">View Profile</Button>
-                                                <Button>Book Now</Button>
-                                            </div>
-                                        </div>
+                        <Card key={gig.id} className="overflow-hidden rounded-2xl hover:shadow-lg transition-shadow">
+                            <div className="aspect-video w-full overflow-hidden">
+                                <img src={gig.image || "/placeholder.svg"} alt={gig.title} className="w-full h-full object-cover" />
+                            </div>
+                            <CardContent className="p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs rounded-full bg-primary/10 text-primary px-2 py-0.5">{categoryLabel}</span>
+                                    <div className="text-xs text-muted-foreground">${gig.price}/hr</div>
+                                </div>
+                                <div className="font-semibold leading-snug mb-1 line-clamp-2">{gig.title}</div>
+                                <div className="text-sm text-muted-foreground mb-3">by {gig.teacher}</div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-1 text-amber-500 text-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.802 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118L10.95 14.95a1 1 0 00-1.175 0l-2.987 2.132c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.153 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                                        <span>{gig.rating}</span>
+                                        <span className="text-muted-foreground">({gig.reviews})</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-muted-foreground text-sm">
+                                        <Clock className="h-4 w-4" />
+                                        {gig.duration} min
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div className="text-xs text-muted-foreground">Next: {gig.nextAvailable}</div>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="sm">View Profile</Button>
+                                        <Button size="sm">Book Now</Button>
                                     </div>
                                 </div>
                             </CardContent>
