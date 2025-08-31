@@ -46,22 +46,23 @@ export interface UserProfile {
   coverImage?: string
   headline: string
   userType: 'student' | 'teacher'
-  
+
   // Professional sections
   experiences: Experience[]
   education: Education[]
   work: Work[]
-  
+
   // Skills and languages
   skills: string[]
   languages: string[]
-  
+
   // Teacher specific
   subjects?: string[]
   hourlyRate?: number
   availability?: string
   timezone?: string
-  
+  demoVideos?: DemoVideo[]
+
   // Stats
   rating?: number
   totalStudents?: number
@@ -69,6 +70,19 @@ export interface UserProfile {
   reviews?: number
   completionRate?: number
   responseTime?: string
+}
+
+export interface DemoVideo {
+  id: string
+  title: string
+  description: string
+  videoUrl: string
+  thumbnailUrl?: string
+  duration: string
+  subject: string
+  uploadDate: string
+  videoType: 'local' | 'external'
+  localFile?: File
 }
 
 export interface ProfileFormData {

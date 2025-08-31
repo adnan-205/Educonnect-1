@@ -5,11 +5,12 @@ import { ProfileHeader } from "@/components/profile/profile-header"
 import { ExperienceSection } from "@/components/profile/experience-section"
 import { EducationSection } from "@/components/profile/education-section"
 import { WorkSection } from "@/components/profile/work-section"
+import { DemoVideoSection } from "@/components/profile/demo-video-section"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Star, MessageCircle, Calendar, Award } from "lucide-react"
-import { UserProfile, Experience, Education, Work } from "@/lib/types/profile"
+import { UserProfile, Experience, Education, Work, DemoVideo } from "@/lib/types/profile"
 
 export default function ProfilePage() {
   // Mock user profile data with LinkedIn-style structure
@@ -24,7 +25,7 @@ export default function ProfilePage() {
     userType: "teacher",
     avatar: "",
     coverImage: "",
-    
+
     // Professional sections
     experiences: [
       {
@@ -50,7 +51,7 @@ export default function ProfilePage() {
         skills: ["Online Teaching", "Test Prep", "Student Assessment"]
       }
     ],
-    
+
     education: [
       {
         id: "1",
@@ -77,7 +78,7 @@ export default function ProfilePage() {
         activities: ["Phi Beta Kappa", "Math Tutoring Center", "Student Government"]
       }
     ],
-    
+
     work: [
       {
         id: "1",
@@ -91,14 +92,38 @@ export default function ProfilePage() {
         achievements: ["Trained over 200 teachers in advanced teaching methodologies", "Developed curriculum adopted by 15+ schools", "Increased student engagement scores by 30%"]
       }
     ],
-    
+
     subjects: ["Mathematics", "Calculus", "Statistics", "Algebra", "Geometry"],
     languages: ["English", "Spanish"],
     skills: ["Teaching", "Curriculum Development", "Student Assessment", "Online Education", "Mentoring"],
     hourlyRate: 45,
     availability: "Monday-Friday, 9 AM - 6 PM",
     timezone: "EST (UTC-5)",
-    
+    demoVideos: [
+      {
+        id: "1",
+        title: "Calculus Fundamentals: Derivatives",
+        description: "A comprehensive introduction to derivatives in calculus, covering the basic concepts and practical examples.",
+        videoUrl: "https://www.youtube.com/watch?v=example1",
+        thumbnailUrl: "/placeholder.jpg",
+        duration: "8:45",
+        subject: "Calculus",
+        uploadDate: "2024-01-15",
+        videoType: "external"
+      },
+      {
+        id: "2",
+        title: "Algebra: Solving Quadratic Equations",
+        description: "Step-by-step guide to solving quadratic equations using factoring, completing the square, and the quadratic formula.",
+        videoUrl: "https://www.youtube.com/watch?v=example2",
+        thumbnailUrl: "/placeholder.jpg",
+        duration: "12:30",
+        subject: "Algebra",
+        uploadDate: "2024-01-10",
+        videoType: "external"
+      }
+    ],
+
     // Stats
     rating: 4.9,
     totalStudents: 150,
@@ -152,35 +177,48 @@ export default function ProfilePage() {
     setProfile(prev => ({ ...prev, work }))
   }
 
+  const handleDemoVideoUpdate = (demoVideos: DemoVideo[]) => {
+    setProfile(prev => ({ ...prev, demoVideos }))
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Profile Header */}
-        <ProfileHeader 
-          profile={profile} 
-          onUpdate={handleProfileUpdate} 
-          isEditable={true} 
+        <ProfileHeader
+          profile={profile}
+          onUpdate={handleProfileUpdate}
+          isEditable={true}
         />
 
         {/* Professional Sections */}
         <div className="space-y-6">
-          <ExperienceSection 
-            experiences={profile.experiences} 
-            onUpdate={handleExperienceUpdate} 
-            isEditable={true} 
+          <ExperienceSection
+            experiences={profile.experiences}
+            onUpdate={handleExperienceUpdate}
+            isEditable={true}
           />
-          
-          <WorkSection 
-            work={profile.work} 
-            onUpdate={handleWorkUpdate} 
-            isEditable={true} 
+
+          <WorkSection
+            work={profile.work}
+            onUpdate={handleWorkUpdate}
+            isEditable={true}
           />
-          
-          <EducationSection 
-            education={profile.education} 
-            onUpdate={handleEducationUpdate} 
-            isEditable={true} 
+
+          <EducationSection
+            education={profile.education}
+            onUpdate={handleEducationUpdate}
+            isEditable={true}
           />
+
+          {/* Demo Videos Section - Only show for teachers */}
+          {profile.userType === 'teacher' && (
+            <DemoVideoSection
+              videos={profile.demoVideos || []}
+              onUpdate={handleDemoVideoUpdate}
+              isEditable={true}
+            />
+          )}
         </div>
 
         {/* Reviews Section */}
@@ -203,11 +241,10 @@ export default function ProfilePage() {
                           {[...Array(5)].map((_, i) => (
                             <Star
                               key={i}
-                              className={`h-4 w-4 ${
-                                i < review.rating
-                                  ? "fill-yellow-400 text-yellow-400"
-                                  : "text-gray-300"
-                              }`}
+                              className={`h-4 w-4 ${i < review.rating
+                                ? "fill-yellow-400 text-yellow-400"
+                                : "text-gray-300"
+                                }`}
                             />
                           ))}
                         </div>

@@ -30,6 +30,18 @@ const gigs = [
         description: "Comprehensive math tutoring for high school and college students.",
         image: "/placeholder.jpg",
         nextAvailable: "Today 2:00 PM",
+        demoVideos: [
+            {
+                id: "1",
+                title: "Calculus Fundamentals",
+                description: "Introduction to derivatives",
+                videoUrl: "https://www.youtube.com/watch?v=example1",
+                duration: "8:45",
+                subject: "Calculus",
+                uploadDate: "2024-01-15",
+                videoType: "external"
+            }
+        ]
     },
     {
         id: 2,
@@ -43,6 +55,18 @@ const gigs = [
         description: "Learn Python from scratch with hands-on projects.",
         image: "/placeholder.jpg",
         nextAvailable: "Tomorrow 10:00 AM",
+        demoVideos: [
+            {
+                id: "2",
+                title: "Python Basics",
+                description: "Variables and data types",
+                videoUrl: "https://www.youtube.com/watch?v=example2",
+                duration: "12:30",
+                subject: "Programming",
+                uploadDate: "2024-01-10",
+                videoType: "external"
+            }
+        ]
     },
     {
         id: 3,
@@ -56,6 +80,7 @@ const gigs = [
         description: "Improve your Spanish speaking skills with a native speaker.",
         image: "/placeholder.jpg",
         nextAvailable: "Today 4:00 PM",
+        demoVideos: []
     },
 ]
 
@@ -237,6 +262,30 @@ export default function BrowsePage() {
                                         {gig.duration} min
                                     </div>
                                 </div>
+                                {/* Demo Video Section */}
+                                {gig.demoVideos && gig.demoVideos.length > 0 && (
+                                    <div className="mb-3 p-2 bg-muted/30 rounded-lg">
+                                        <div className="text-xs font-medium text-muted-foreground mb-2">Demo Videos</div>
+                                        <div className="flex gap-2 overflow-x-auto">
+                                            {gig.demoVideos.slice(0, 2).map((video) => (
+                                                <div
+                                                    key={video.id}
+                                                    className="flex-shrink-0 flex items-center gap-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
+                                                    onClick={() => window.open(video.videoUrl, '_blank')}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    {video.title}
+                                                </div>
+                                            ))}
+                                            {gig.demoVideos.length > 2 && (
+                                                <span className="text-xs text-muted-foreground">+{gig.demoVideos.length - 2} more</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex items-center justify-between">
                                     <div className="text-xs text-muted-foreground">Next: {gig.nextAvailable}</div>
                                     <div className="flex gap-2">

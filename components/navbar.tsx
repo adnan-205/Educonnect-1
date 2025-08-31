@@ -75,14 +75,14 @@ export function Navbar() {
           {/* Desktop Navigation (hidden on mobile) */}
           <div className="hidden md:flex items-center space-x-6">
             <Link href="/browse" className="text-muted-foreground hover:text-foreground transition-colors">
-              Browse Gigs
+              Find Teacher
             </Link>
             <Link href="/how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
               How it Works
             </Link>
             {userType ? (
               <>
-                <Link href={userType === "teacher" ? "/teacher/dashboard" : "/student/dashboard"}>
+                <Link href="/dashboard">
                   <Button variant="ghost">Dashboard</Button>
                 </Link>
                 <ModeToggle />
@@ -136,14 +136,14 @@ export function Navbar() {
           <div className="md:hidden py-4 border-t">
             <div className="flex flex-col space-y-4">
               <Link href="/browse" className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setIsOpen(false)}>
-                Browse Gigs
+                Find Teacher
               </Link>
               <Link href="/how-it-works" className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setIsOpen(false)}>
                 How it Works
               </Link>
               {userType ? (
                 <>
-                  <Link href={userType === "teacher" ? "/teacher/dashboard" : "/student/dashboard"} onClick={() => setIsOpen(false)}>
+                  <Link href="/dashboard" onClick={() => setIsOpen(false)}>
                     <Button variant="ghost" className="w-full justify-start">
                       Dashboard
                     </Button>
