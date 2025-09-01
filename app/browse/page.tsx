@@ -204,9 +204,9 @@ export default function BrowsePage() {
                                 />
                             </div>
                         </div>
-                        <div className="flex gap-4">
+                        <div className="flex gap-4 w-full md:w-auto">
                             <Select value={priceRange} onValueChange={setPriceRange}>
-                                <SelectTrigger className="w-40">
+                                <SelectTrigger className="w-full md:w-40">
                                     <SelectValue placeholder="Price Range" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -235,7 +235,7 @@ export default function BrowsePage() {
                     ))}
                 </div>
             )}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredGigs.length === 0 ? (
                     <div className="col-span-full text-center text-muted-foreground py-12">No gigs found in this category.</div>
                 ) : (

@@ -18,17 +18,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
-  const [userType, setUserType] = useState<"student" | "teacher" | null>(null)
+  const [userType, setUserType] = useState<"student" | "teacher" | "admin" | null>(null)
   const router = useRouter()
   const [loginDialogOpen, setLoginDialogOpen] = useState(false)
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const role = localStorage.getItem("role") as "student" | "teacher" | null
+      const role = localStorage.getItem("role") as "student" | "teacher" | "admin" | null
       setUserType(role)
       // Listen for storage changes (e.g., login/logout in another tab)
       const handleStorage = () => {
-        const newRole = localStorage.getItem("role") as "student" | "teacher" | null
+        const newRole = localStorage.getItem("role") as "student" | "teacher" | "admin" | null
         setUserType(newRole)
       }
       window.addEventListener("storage", handleStorage)
@@ -37,7 +37,7 @@ export function Navbar() {
   }, [])
 
   // Helper to set userType immediately after login/signup
-  const handleSetRole = (role: "student" | "teacher") => {
+  const handleSetRole = (role: "student" | "teacher" | "admin") => {
     localStorage.setItem("role", role)
     setUserType(role)
   }
@@ -123,7 +123,8 @@ export function Navbar() {
                       <DialogTitle>Login as</DialogTitle>
                     </DialogHeader>
                     <Button className="w-full mb-2" onClick={() => { handleSetRole("student"); setLoginDialogOpen(false); }}>Student</Button>
-                    <Button className="w-full" onClick={() => { handleSetRole("teacher"); setLoginDialogOpen(false); }}>Teacher</Button>
+                    <Button className="w-full mb-2" onClick={() => { handleSetRole("teacher"); setLoginDialogOpen(false); }}>Teacher</Button>
+                    <Button className="w-full" onClick={() => { handleSetRole("admin"); setLoginDialogOpen(false); }}>Admin</Button>
                   </DialogContent>
                 </Dialog>
               </>
@@ -164,7 +165,8 @@ export function Navbar() {
                         <DialogTitle>Login as</DialogTitle>
                       </DialogHeader>
                       <Button className="w-full mb-2" onClick={() => { handleSetRole("student"); setLoginDialogOpen(false); setIsOpen(false); }}>Student</Button>
-                      <Button className="w-full" onClick={() => { handleSetRole("teacher"); setLoginDialogOpen(false); setIsOpen(false); }}>Teacher</Button>
+                      <Button className="w-full mb-2" onClick={() => { handleSetRole("teacher"); setLoginDialogOpen(false); setIsOpen(false); }}>Teacher</Button>
+                      <Button className="w-full" onClick={() => { handleSetRole("admin"); setLoginDialogOpen(false); setIsOpen(false); }}>Admin</Button>
                     </DialogContent>
                   </Dialog>
                 </>

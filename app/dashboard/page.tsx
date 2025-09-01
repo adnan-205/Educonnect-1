@@ -159,7 +159,7 @@ const myStudents = [
 
 export default function DashboardPage() {
     const [activeSection, setActiveSection] = useState("home")
-    const [userType, setUserType] = useState<"student" | "teacher" | null>(null)
+    const [userType, setUserType] = useState<"student" | "teacher" | "admin" | null>(null)
     const router = useRouter()
 
     // Get user type from localStorage (same as navbar)
@@ -186,6 +186,13 @@ export default function DashboardPage() {
         { id: "gigs", label: "My Gigs", icon: Star },
         { id: "earnings", label: "Earnings", icon: DollarSign },
         { id: "messages", label: "Messages", icon: MessageCircle },
+        { id: "settings", label: "Settings", icon: Settings }
+    ] : userType === "admin" ? [
+        { id: "home", label: "Admin Dashboard", icon: Home },
+        { id: "users", label: "User Management", icon: Users },
+        { id: "transactions", label: "Transactions", icon: DollarSign },
+        { id: "classes", label: "Class Analytics", icon: Video },
+        { id: "reports", label: "Reports", icon: TrendingUp },
         { id: "settings", label: "Settings", icon: Settings }
     ] : [
         { id: "home", label: "Home", icon: Home },
@@ -217,6 +224,23 @@ export default function DashboardPage() {
                     return <SettingsView />
                 default:
                     return <TeacherDashboardView />
+            }
+        } else if (userType === "admin") {
+            switch (activeSection) {
+                case "home":
+                    return <AdminDashboardView />
+                case "users":
+                    return <UserManagementView />
+                case "transactions":
+                    return <TransactionsView />
+                case "classes":
+                    return <ClassAnalyticsView />
+                case "reports":
+                    return <ReportsView />
+                case "settings":
+                    return <SettingsView />
+                default:
+                    return <AdminDashboardView />
             }
         } else {
             switch (activeSection) {
@@ -277,6 +301,7 @@ export default function DashboardPage() {
                         >
                             Continue as Teacher
                         </button>
+                        {/* Admin login is only available via dedicated login page */}
                     </div>
                 </div>
             </div>
@@ -284,9 +309,58 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="flex h-screen bg-gray-50">
-            {/* Left Sidebar */}
-            <div className="w-55 bg-gray-50 border-r border-gray-200 flex flex-col">
+        <div className="flex flex-col lg:flex-row h-screen bg-gray-50">
+            {/* Mobile Header */}
+            <div className="lg:hidden bg-white border-b border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                        <Avatar className="h-10 w-10">
+                            <AvatarImage src="/placeholder.jpg" />
+                            <AvatarFallback className="text-sm font-semibold">JD</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900">John Doe</h2>
+                            <p className="text-sm text-gray-500 capitalize">{userType}</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => {
+                            localStorage.removeItem("role")
+                            setUserType(null)
+                            router.push("/")
+                        }}
+                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                    >
+                        Sign Out
+                    </button>
+                </div>
+            </div>
+
+            {/* Mobile Navigation */}
+            <div className="lg:hidden bg-gray-50 border-b border-gray-200 p-2">
+                <div className="flex overflow-x-auto space-x-2 pb-2">
+                    {navigationItems.map((item) => {
+                        const Icon = item.icon
+                        const isActive = activeSection === item.id
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => setActiveSection(item.id)}
+                                className={`flex-shrink-0 flex flex-col items-center space-y-1 px-3 py-2 rounded-lg text-xs transition-all ${isActive
+                                    ? "bg-blue-600 text-white"
+                                    : "text-gray-600 hover:bg-gray-100"
+                                    }`}
+                            >
+                                <Icon className={`h-5 w-5 ${isActive ? "text-white" : "text-gray-500"}`} />
+                                <span className="font-medium whitespace-nowrap">{item.label}</span>
+                            </button>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* Left Sidebar - Hidden on Mobile */}
+            <div className="hidden lg:flex w-55 bg-gray-50 border-r border-gray-200 flex-col">
                 {/* Profile Header */}
                 <div className="p-6 border-b border-gray-200">
                     <div className="text-center">
@@ -345,7 +419,7 @@ export default function DashboardPage() {
 
             {/* Right Content Panel */}
             <div className="flex-1 overflow-auto">
-                <div className="p-8">
+                <div className="p-4 lg:p-8">
                     {renderContent()}
                 </div>
             </div>
@@ -1602,6 +1676,567 @@ function SettingsView() {
                     </div>
                 </CardContent>
             </Card>
+        </div>
+    )
+}
+
+// ===== ADMIN-SPECIFIC MOCK DATA =====
+
+const adminStats = {
+    totalUsers: 1247,
+    totalTeachers: 89,
+    totalStudents: 1158,
+    totalRevenue: 45600,
+    todayClasses: 23,
+    monthClasses: 456,
+    pendingApprovals: 12,
+    bannedUsers: 3
+}
+
+const allUsers = [
+    {
+        id: 1,
+        name: "Sarah Johnson",
+        email: "sarah.j@example.com",
+        type: "teacher",
+        status: "active",
+        joinDate: "2024-01-15",
+        lastActive: "2 hours ago",
+        avatar: "/placeholder.jpg",
+        rating: 4.9,
+        classesCompleted: 156
+    },
+    {
+        id: 2,
+        name: "Emma Wilson",
+        email: "emma.w@example.com",
+        type: "student",
+        status: "active",
+        joinDate: "2024-02-20",
+        lastActive: "1 day ago",
+        avatar: "/placeholder.jpg",
+        rating: 4.8,
+        classesCompleted: 45
+    },
+    {
+        id: 3,
+        name: "David Chen",
+        email: "david.c@example.com",
+        type: "teacher",
+        status: "banned",
+        joinDate: "2023-11-10",
+        lastActive: "1 week ago",
+        avatar: "/placeholder.jpg",
+        rating: 4.2,
+        classesCompleted: 89
+    },
+    {
+        id: 4,
+        name: "Michael Brown",
+        email: "michael.b@example.com",
+        type: "student",
+        status: "active",
+        joinDate: "2024-03-05",
+        lastActive: "3 hours ago",
+        avatar: "/placeholder.jpg",
+        rating: 4.7,
+        classesCompleted: 23
+    }
+]
+
+const transactions = [
+    {
+        id: 1,
+        student: "Emma Wilson",
+        teacher: "Sarah Johnson",
+        amount: 25,
+        date: "2024-06-15",
+        status: "completed",
+        classSubject: "Calculus",
+        duration: "60 min"
+    },
+    {
+        id: 2,
+        student: "Michael Brown",
+        teacher: "Alex Kim",
+        amount: 30,
+        date: "2024-06-15",
+        status: "pending",
+        classSubject: "Physics",
+        duration: "90 min"
+    },
+    {
+        id: 3,
+        student: "Lisa Garcia",
+        teacher: "David Chen",
+        amount: 20,
+        date: "2024-06-14",
+        status: "completed",
+        classSubject: "Spanish",
+        duration: "45 min"
+    }
+]
+
+const classAnalytics = {
+    today: {
+        total: 23,
+        completed: 18,
+        cancelled: 2,
+        ongoing: 3
+    },
+    thisMonth: {
+        total: 456,
+        completed: 412,
+        cancelled: 28,
+        ongoing: 16
+    },
+    subjects: [
+        { name: "Mathematics", count: 156, percentage: 34 },
+        { name: "Physics", count: 89, percentage: 20 },
+        { name: "Chemistry", count: 67, percentage: 15 },
+        { name: "English", count: 45, percentage: 10 },
+        { name: "Spanish", count: 34, percentage: 7 },
+        { name: "Other", count: 65, percentage: 14 }
+    ]
+}
+
+// ===== ADMIN VIEW COMPONENTS =====
+
+// Admin Dashboard View Component
+function AdminDashboardView() {
+    return (
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="text-gray-600 mt-2">Monitor and manage the entire EduConnect platform.</p>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                                <Users className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-600">Total Users</p>
+                            <p className="text-2xl font-bold text-gray-900">{adminStats.totalUsers.toLocaleString()}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                                <Video className="h-6 w-6 text-green-600" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-600">Today's Classes</p>
+                            <p className="text-2xl font-bold text-gray-900">{adminStats.todayClasses}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                                <DollarSign className="h-6 w-6 text-purple-600" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                            <p className="text-2xl font-bold text-gray-900">${adminStats.totalRevenue.toLocaleString()}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                                <BookOpen className="h-6 w-6 text-orange-600" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
+                            <p className="text-2xl font-bold text-gray-900">{adminStats.pendingApprovals}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="bg-white shadow-sm border-0">
+                    <CardHeader>
+                        <CardTitle>Recent Transactions</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                            {transactions.slice(0, 3).map((transaction) => (
+                                <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                            <DollarSign className="h-4 w-4 text-green-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-gray-900">${transaction.amount}</p>
+                                            <p className="text-xs text-gray-500">{transaction.student} → {transaction.teacher}</p>
+                                        </div>
+                                    </div>
+                                    <Badge variant={transaction.status === "completed" ? "secondary" : "outline"}>
+                                        {transaction.status}
+                                    </Badge>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-white shadow-sm border-0">
+                    <CardHeader>
+                        <CardTitle>Platform Health</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">Active Teachers</span>
+                                <span className="font-medium text-gray-900">{adminStats.totalTeachers}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">Active Students</span>
+                                <span className="font-medium text-gray-900">{adminStats.totalStudents}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">Banned Users</span>
+                                <span className="font-medium text-red-600">{adminStats.bannedUsers}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">Monthly Classes</span>
+                                <span className="font-medium text-gray-900">{adminStats.monthClasses}</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    )
+}
+
+// User Management View Component
+function UserManagementView() {
+    return (
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+                <p className="text-gray-600 mt-2">Manage all users, approve teachers, and handle bans.</p>
+            </div>
+
+            {/* Search and Filters */}
+            <Card className="bg-white shadow-sm border-0">
+                <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-1">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search users by name or email..."
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+                        <Button variant="outline" className="flex items-center space-x-2">
+                            <Filter className="h-4 w-4" />
+                            <span>Filters</span>
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Users List */}
+            <Card className="bg-white shadow-sm border-0">
+                <CardHeader>
+                    <CardTitle>All Users</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        {allUsers.map((user) => (
+                            <div key={user.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                <div className="flex items-center space-x-4">
+                                    <Avatar className="h-12 w-12">
+                                        <AvatarImage src={user.avatar} />
+                                        <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <h3 className="font-semibold text-gray-900">{user.name}</h3>
+                                        <p className="text-sm text-gray-600">{user.email}</p>
+                                        <div className="flex items-center space-x-2 mt-1">
+                                            <Badge variant={user.type === "teacher" ? "default" : "secondary"}>
+                                                {user.type}
+                                            </Badge>
+                                            <Badge variant={user.status === "active" ? "secondary" : "destructive"}>
+                                                {user.status}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <div className="text-right">
+                                        <p className="text-sm text-gray-500">Joined {user.joinDate}</p>
+                                        <p className="text-xs text-gray-400">Last active: {user.lastActive}</p>
+                                    </div>
+                                    <div className="flex space-x-2">
+                                        {user.status === "banned" ? (
+                                            <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                                                Unban
+                                            </Button>
+                                        ) : (
+                                            <Button size="sm" variant="destructive">
+                                                Ban User
+                                            </Button>
+                                        )}
+                                        <Button size="sm" variant="outline">
+                                            View Details
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+// Transactions View Component
+function TransactionsView() {
+    return (
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold text-gray-900">Transaction History</h1>
+                <p className="text-gray-600 mt-2">Monitor all financial transactions and platform revenue.</p>
+            </div>
+
+            {/* Transaction Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                            <p className="text-3xl font-bold text-green-600">${adminStats.totalRevenue.toLocaleString()}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600">Today's Revenue</p>
+                            <p className="text-3xl font-bold text-blue-600">$1,250</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600">Pending Payouts</p>
+                            <p className="text-3xl font-bold text-orange-600">$8,450</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Transactions List */}
+            <Card className="bg-white shadow-sm border-0">
+                <CardHeader>
+                    <CardTitle>Recent Transactions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        {transactions.map((transaction) => (
+                            <div key={transaction.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                <div className="flex items-center space-x-4">
+                                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                        <DollarSign className="h-6 w-6 text-green-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-gray-900">{transaction.classSubject}</h3>
+                                        <p className="text-sm text-gray-600">{transaction.student} → {transaction.teacher}</p>
+                                        <p className="text-xs text-gray-500">{transaction.duration} • {transaction.date}</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xl font-bold text-gray-900">${transaction.amount}</p>
+                                    <Badge variant={transaction.status === "completed" ? "secondary" : "outline"}>
+                                        {transaction.status}
+                                    </Badge>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+// Class Analytics View Component
+function ClassAnalyticsView() {
+    return (
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold text-gray-900">Class Analytics</h1>
+                <p className="text-gray-600 mt-2">Track class performance and platform usage statistics.</p>
+            </div>
+
+            {/* Class Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600">Today's Classes</p>
+                            <p className="text-3xl font-bold text-blue-600">{classAnalytics.today.total}</p>
+                            <p className="text-xs text-gray-500">{classAnalytics.today.completed} completed</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600">This Month</p>
+                            <p className="text-3xl font-bold text-green-600">{classAnalytics.thisMonth.total}</p>
+                            <p className="text-xs text-gray-500">{classAnalytics.thisMonth.completed} completed</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600">Cancellation Rate</p>
+                            <p className="text-3xl font-bold text-orange-600">6.1%</p>
+                            <p className="text-xs text-gray-500">This month</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-white shadow-sm border-0">
+                    <CardContent className="p-6">
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-gray-600">Avg Class Duration</p>
+                            <p className="text-3xl font-bold text-purple-600">67 min</p>
+                            <p className="text-xs text-gray-500">This month</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Subject Distribution */}
+            <Card className="bg-white shadow-sm border-0">
+                <CardHeader>
+                    <CardTitle>Class Distribution by Subject</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        {classAnalytics.subjects.map((subject) => (
+                            <div key={subject.name} className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-4 h-4 bg-blue-600 rounded"></div>
+                                    <span className="font-medium text-gray-900">{subject.name}</span>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <div className="w-32 bg-gray-200 rounded-full h-2">
+                                        <div
+                                            className="bg-blue-600 h-2 rounded-full"
+                                            style={{ width: `${subject.percentage}%` }}
+                                        ></div>
+                                    </div>
+                                    <span className="text-sm text-gray-600 w-16 text-right">
+                                        {subject.count} ({subject.percentage}%)
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+// Reports View Component
+function ReportsView() {
+    return (
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
+                <p className="text-gray-600 mt-2">Generate comprehensive reports on platform performance.</p>
+            </div>
+
+            {/* Report Types */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card className="bg-white shadow-sm border-0 hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-6 text-center">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Users className="h-8 w-8 text-blue-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-2">User Growth Report</h3>
+                        <p className="text-sm text-gray-600 mb-4">Track user registration and growth trends</p>
+                        <Button className="w-full bg-blue-600 hover:bg-blue-700">Generate Report</Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-white shadow-sm border-0 hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-6 text-center">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Video className="h-8 w-8 text-green-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-2">Class Performance</h3>
+                        <p className="text-sm text-gray-600 mb-4">Analyze class completion and success rates</p>
+                        <Button className="w-full bg-green-600 hover:bg-green-700">Generate Report</Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-white shadow-sm border-0 hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-6 text-center">
+                        <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <DollarSign className="h-8 w-8 text-purple-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-2">Revenue Analysis</h3>
+                        <p className="text-sm text-gray-600 mb-4">Financial performance and trends</p>
+                        <Button className="w-full bg-purple-600 hover:bg-purple-700">Generate Report</Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-white shadow-sm border-0 hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-6 text-center">
+                        <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Star className="h-8 w-8 text-orange-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-2">Teacher Performance</h3>
+                        <p className="text-sm text-gray-600 mb-4">Teacher ratings and student feedback</p>
+                        <Button className="w-full bg-orange-600 hover:bg-orange-700">Generate Report</Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-white shadow-sm border-0 hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-6 text-center">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <TrendingUp className="h-8 w-8 text-red-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-2">Platform Health</h3>
+                        <p className="text-sm text-gray-600 mb-4">System performance and user satisfaction</p>
+                        <Button className="w-full bg-red-600 hover:bg-red-700">Generate Report</Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-white shadow-sm border-0 hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-6 text-center">
+                        <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Calendar className="h-8 w-8 text-indigo-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-2">Monthly Summary</h3>
+                        <p className="text-sm text-gray-600 mb-4">Comprehensive monthly overview</p>
+                        <Button className="w-full bg-indigo-600 hover:bg-indigo-700">Generate Report</Button>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     )
 }
