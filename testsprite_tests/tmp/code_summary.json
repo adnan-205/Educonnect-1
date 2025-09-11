@@ -1,0 +1,149 @@
+{
+  "project_name": "EduConnect",
+  "project_type": "Full-Stack Web Application",
+  "description": "A comprehensive MERN stack application connecting students and teachers for online learning sessions with gig creation, booking management, and role-based dashboards.",
+  "tech_stack": {
+    "frontend": {
+      "framework": "Next.js 15",
+      "language": "TypeScript",
+      "ui_library": "React 19",
+      "styling": "Tailwind CSS",
+      "components": "Radix UI with shadcn/ui",
+      "authentication": "NextAuth.js",
+      "http_client": "Axios",
+      "state_management": "React Hooks"
+    },
+    "backend": {
+      "runtime": "Node.js",
+      "framework": "Express.js",
+      "language": "TypeScript",
+      "database": "MongoDB with Mongoose",
+      "authentication": "JWT with bcrypt",
+      "validation": "express-validator",
+      "security": "helmet, CORS, rate-limiting"
+    },
+    "development": {
+      "build_tools": "TypeScript compiler, Next.js build",
+      "dev_tools": "ts-node-dev, Next.js dev server",
+      "package_manager": "npm"
+    }
+  },
+  "architecture": {
+    "pattern": "MVC with Service Layer",
+    "api_style": "RESTful API",
+    "authentication": "JWT-based with role-based access control",
+    "database_design": "Document-based with relationships"
+  },
+  "key_features": {
+    "authentication": {
+      "user_registration": "Email/password with role selection (teacher/student)",
+      "login_system": "JWT authentication with persistent sessions",
+      "role_based_access": "Teacher and student specific dashboards and permissions"
+    },
+    "teacher_features": {
+      "gig_management": "Create, edit, delete teaching gigs with categories, pricing, duration",
+      "booking_management": "Accept/reject student booking requests",
+      "dashboard": "View statistics, earnings, ratings, and booking requests",
+      "profile": "Professional LinkedIn-inspired profile system"
+    },
+    "student_features": {
+      "gig_browsing": "Search and filter available gigs by category, price, rating",
+      "booking_system": "Schedule sessions with preferred date/time selection",
+      "dashboard": "View upcoming classes, booking history, and statistics",
+      "class_management": "Track completed and upcoming sessions"
+    },
+    "shared_features": {
+      "responsive_design": "Mobile-first responsive UI",
+      "real_time_updates": "Dynamic data loading and state management",
+      "error_handling": "Comprehensive error states and user feedback",
+      "form_validation": "Client and server-side validation"
+    }
+  },
+  "api_endpoints": {
+    "authentication": [
+      "POST /api/auth/register - User registration",
+      "POST /api/auth/login - User login",
+      "PUT /api/auth/update-role - Update user role"
+    ],
+    "gigs": [
+      "GET /api/gigs - Get all gigs",
+      "POST /api/gigs - Create new gig (Teacher only)",
+      "PUT /api/gigs/:id - Update gig (Teacher only)",
+      "DELETE /api/gigs/:id - Delete gig (Teacher only)"
+    ],
+    "bookings": [
+      "GET /api/bookings - Get user's bookings",
+      "POST /api/bookings - Create booking (Student only)",
+      "PUT /api/bookings/:id - Update booking status (Teacher only)"
+    ]
+  },
+  "database_models": {
+    "User": {
+      "fields": ["name", "email", "password", "role", "profile"],
+      "roles": ["teacher", "student"]
+    },
+    "Gig": {
+      "fields": ["title", "category", "price", "duration", "description", "teacher", "availability"],
+      "relationships": ["belongs to User (teacher)"]
+    },
+    "Booking": {
+      "fields": ["gig", "student", "teacher", "scheduledDate", "scheduledTime", "status"],
+      "relationships": ["belongs to Gig", "belongs to User (student)", "belongs to User (teacher)"],
+      "statuses": ["pending", "accepted", "rejected", "completed"]
+    }
+  },
+  "file_structure": {
+    "backend": {
+      "src": {
+        "controllers": "API endpoint handlers",
+        "models": "Database schemas and models",
+        "middleware": "Authentication and validation middleware",
+        "routes": "API route definitions"
+      },
+      "config": "Environment and database configuration"
+    },
+    "frontend": {
+      "app": {
+        "auth": "Authentication pages",
+        "teacher": "Teacher dashboard and features",
+        "student": "Student dashboard and features",
+        "browse": "Gig browsing and search"
+      },
+      "components": "Reusable UI components",
+      "services": "API service functions",
+      "contexts": "React context providers"
+    }
+  },
+  "testing_priorities": {
+    "critical_paths": [
+      "User registration and authentication flow",
+      "Teacher gig creation and management",
+      "Student gig browsing and booking",
+      "Booking request approval/rejection workflow",
+      "Dashboard data loading and display"
+    ],
+    "api_testing": [
+      "Authentication endpoints with JWT validation",
+      "CRUD operations for gigs with role-based access",
+      "Booking creation and status updates",
+      "Error handling and validation"
+    ],
+    "ui_testing": [
+      "Form validation and submission",
+      "Responsive design across devices",
+      "Loading states and error messages",
+      "Navigation and role-based routing"
+    ]
+  },
+  "deployment_config": {
+    "backend_port": 5000,
+    "frontend_port": 3000,
+    "database": "MongoDB Atlas",
+    "environment_variables": [
+      "MONGODB_URI",
+      "JWT_SECRET",
+      "NEXT_PUBLIC_API_URL",
+      "NEXTAUTH_SECRET"
+    ]
+  }
+}

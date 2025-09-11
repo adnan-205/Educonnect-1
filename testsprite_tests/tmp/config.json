@@ -1,0 +1,15 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "Educonnect-1-3",
+    "projectPath": "c:\\Users\\iqbal\\OneDrive\\Desktop\\mern-stack\\Educonnect\\Educonnect-1-3",
+    "testIds": [],
+    "additionalInstruction": "Test the complete EduConnect application including user authentication, teacher gig management, student booking system, and all dashboard functionalities. Focus on critical user flows and API integrations.",
+    "envs": {
+      "API_KEY": "sk-user-eX3Xa4LsCcpTgORnW4_vLwA8sQg3f5k4RHRk2WdSBRgalwE6bdK920sSZeaVGr8Z8bXbinXTolC98Pb9Rxri4QL4_PQ3-M2QCSB-O1hf6uehud8xZ4qI46BYJk5W6CUrkc4"
+    }
+  }
+}
