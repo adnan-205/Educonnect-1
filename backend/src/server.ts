@@ -24,11 +24,15 @@ app.use(express.urlencoded({ limit: '5mb', extended: true }));
 // Security middleware
 app.use(helmet());
 // Robust CORS config for local dev and configurable origins
-const allowedOriginsFromEnv = (process.env.CORS_ORIGINS || '')
+const corsEnv = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '';
+const allowedOriginsFromEnv = corsEnv
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
-const devOriginRegex = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
+
+// Allow common local dev origins: localhost, 127.0.0.1, and typical LAN IP ranges
+const devOriginRegex = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.[0-9]{1,3}\.[0-9]{1,3}|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}):\d+$/;
+
 const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     // Allow same-origin or non-browser requests (no origin)
@@ -39,7 +43,8 @@ const corsOptions: CorsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  // Broaden headers to avoid preflight failures in browsers that send X-Requested-With, etc.
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
 };
 app.use(cors(corsOptions));
 

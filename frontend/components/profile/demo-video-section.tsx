@@ -62,6 +62,7 @@ export function DemoVideoSection({ videos, onUpdate, isEditable = true }: DemoVi
                 const up = await uploadsApi.uploadVideo(localFile, 'educonnect/demo-videos')
                 videoUrl = up?.data?.url || videoUrl
                 duration = (up?.data?.duration ? formatDuration(up.data.duration) : duration)
+                const cloudinaryPublicId = up?.data?.public_id
             }
 
             if (editingVideo) {
@@ -74,6 +75,7 @@ export function DemoVideoSection({ videos, onUpdate, isEditable = true }: DemoVi
                             duration,
                             videoType: activeTab,
                             localFile: undefined,
+                            cloudinaryPublicId: activeTab === 'local' ? cloudinaryPublicId : undefined,
                         }
                         : video
                 )
@@ -85,7 +87,8 @@ export function DemoVideoSection({ videos, onUpdate, isEditable = true }: DemoVi
                     videoUrl,
                     duration,
                     videoType: activeTab,
-                    uploadDate: new Date().toISOString().split('T')[0]
+                    uploadDate: new Date().toISOString().split('T')[0],
+                    cloudinaryPublicId: activeTab === 'local' ? cloudinaryPublicId : undefined,
                 }
                 onUpdate([...videos, newVideo])
             }

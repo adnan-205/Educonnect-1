@@ -6,7 +6,7 @@ import Gig from '../models/Gig';
 export const getUser = async (req: Request, res: Response) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('name email role profile createdAt avatar coverImage');
+      .select('name email role profile createdAt avatar coverImage phone location headline');
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -44,19 +44,34 @@ export const updateMe = async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, message: 'Not authorized' });
     }
 
-    const patch: any = {};
-    if (typeof req.body.avatar === 'string') patch.avatar = req.body.avatar;
-    if (typeof req.body.coverImage === 'string') patch.coverImage = req.body.coverImage;
-    if (req.body.profile && typeof req.body.profile === 'object') {
-      patch.profile = {
-        bio: req.body.profile.bio,
-        education: req.body.profile.education,
-        experience: req.body.profile.experience,
-      };
+    const patch: Record<string, any> = {};
+
+    // Top-level fields
+    if (typeof req.body.name === 'string') patch['name'] = req.body.name;
+    if (typeof req.body.headline === 'string') patch['headline'] = req.body.headline;
+    if (typeof req.body.phone === 'string') patch['phone'] = req.body.phone;
+    if (typeof req.body.location === 'string') patch['location'] = req.body.location;
+    if (typeof req.body.avatar === 'string') patch['avatar'] = req.body.avatar;
+    if (typeof req.body.coverImage === 'string') patch['coverImage'] = req.body.coverImage;
+
+    // Nested profile fields via dot-notation (merges without wiping unspecified keys)
+    const p = req.body.profile || {};
+    if (p && typeof p === 'object') {
+      if (p.bio !== undefined) patch['profile.bio'] = p.bio;
+      if (p.experiences !== undefined) patch['profile.experiences'] = p.experiences;
+      if (p.education !== undefined) patch['profile.education'] = p.education;
+      if (p.work !== undefined) patch['profile.work'] = p.work;
+      if (p.demoVideos !== undefined) patch['profile.demoVideos'] = p.demoVideos;
+      if (p.skills !== undefined) patch['profile.skills'] = p.skills;
+      if (p.languages !== undefined) patch['profile.languages'] = p.languages;
+      if (p.subjects !== undefined) patch['profile.subjects'] = p.subjects;
+      if (p.hourlyRate !== undefined) patch['profile.hourlyRate'] = p.hourlyRate;
+      if (p.availability !== undefined) patch['profile.availability'] = p.availability;
+      if (p.timezone !== undefined) patch['profile.timezone'] = p.timezone;
     }
 
-    const updated = await User.findByIdAndUpdate(userId, patch, { new: true })
-      .select('name email role profile avatar coverImage');
+    const updated = await User.findByIdAndUpdate(userId, { $set: patch }, { new: true })
+      .select('name email role profile avatar coverImage phone location headline');
 
     res.json({ success: true, data: updated });
   } catch (err) {

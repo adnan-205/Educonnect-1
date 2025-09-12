@@ -83,6 +83,7 @@ export interface DemoVideo {
   uploadDate: string
   videoType: 'local' | 'external'
   localFile?: File
+  cloudinaryPublicId?: string
 }
 
 export interface ProfileFormData {

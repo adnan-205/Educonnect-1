@@ -2,6 +2,53 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { IUser } from '../types/models';
 
+// Sub-schemas for rich profile sections (no own _id for cleaner arrays)
+const ExperienceSchema = new mongoose.Schema({
+  title: String,
+  company: String,
+  location: String,
+  startDate: String,
+  endDate: String,
+  current: Boolean,
+  description: String,
+  skills: [String],
+}, { _id: false });
+
+const EducationSchema = new mongoose.Schema({
+  degree: String,
+  institution: String,
+  location: String,
+  startDate: String,
+  endDate: String,
+  current: Boolean,
+  description: String,
+  gpa: String,
+  activities: [String],
+}, { _id: false });
+
+const WorkSchema = new mongoose.Schema({
+  position: String,
+  company: String,
+  location: String,
+  startDate: String,
+  endDate: String,
+  current: Boolean,
+  description: String,
+  achievements: [String],
+}, { _id: false });
+
+const DemoVideoSchema = new mongoose.Schema({
+  title: String,
+  description: String,
+  videoUrl: String,
+  thumbnailUrl: String,
+  duration: String,
+  subject: String,
+  uploadDate: String,
+  videoType: { type: String, enum: ['local', 'external'] },
+  cloudinaryPublicId: String,
+}, { _id: false });
+
 const userSchema = new mongoose.Schema<IUser>({
   name: {
     type: String,
@@ -24,6 +71,10 @@ const userSchema = new mongoose.Schema<IUser>({
     enum: ['student', 'teacher'],
     required: true,
   },
+  // Optional contact and headline
+  phone: { type: String },
+  location: { type: String },
+  headline: { type: String },
   avatar: {
     type: String,
   },
@@ -32,8 +83,19 @@ const userSchema = new mongoose.Schema<IUser>({
   },
   profile: {
     bio: String,
-    education: [String],
-    experience: [String],
+    // Professional sections
+    experiences: [ExperienceSchema],
+    education: [EducationSchema],
+    work: [WorkSchema],
+    demoVideos: [DemoVideoSchema],
+    // Skills and languages
+    skills: [String],
+    languages: [String],
+    subjects: [String],
+    // Teacher specifics
+    hourlyRate: Number,
+    availability: String,
+    timezone: String,
   },
 }, {
   timestamps: true,

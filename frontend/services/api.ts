@@ -8,7 +8,6 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
   timeout: 10000, // 10 seconds timeout
 });
 
@@ -145,14 +144,31 @@ api.interceptors.response.use(
       });
     } else if (error.request) {
       // The request was made but no response was received
-      console.error('[API] No Response:', {
+      const cfg = error.config || {};
+      const info = {
         message: error.message,
+        code: (error as any).code,
+        url: cfg.url,
+        method: cfg.method,
+        baseURL: (cfg as any).baseURL || api.defaults.baseURL,
+        timeout: (cfg as any).timeout,
+      } as const;
+      // Log a concise string to avoid collapsed/empty object rendering in some consoles
+      try {
+        const method = info.method?.toUpperCase?.() || 'UNKNOWN';
+        const fullUrl = `${info.baseURL || ''}${info.url || ''}`;
+        console.error(`[API] No Response for ${method} ${fullUrl} (code=${info.code ?? 'n/a'}, timeout=${info.timeout ?? 'n/a'}): ${info.message}`);
+      } catch (_) {
+        console.error('[API] No Response:', info);
+      }
+    } else {
+      // Something happened in setting up the request
+      console.error('[API] Request Setup Error:', {
+        message: error.message,
+        code: (error as any).code,
         url: error.config?.url,
         method: error.config?.method,
       });
-    } else {
-      // Something happened in setting up the request
-      console.error('[API] Request Setup Error:', error.message);
     }
     
     return Promise.reject(error);

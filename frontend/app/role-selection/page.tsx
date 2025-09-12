@@ -26,12 +26,20 @@ export default function RoleSelectionPage() {
     setError("")
     setLoading(role)
     try {
-      await authApi.updateRole(user.primaryEmailAddress.emailAddress, role)
+      const res = await fetch("/api/proxy/update-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.primaryEmailAddress.emailAddress, role }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data?.success === false) {
+        throw new Error(data?.message || "Role update failed")
+      }
       // Store role for dashboards that still reference localStorage
       localStorage.setItem("role", role)
       router.replace("/dashboard-2")
     } catch (e: any) {
-      setError(e?.response?.data?.message || "Failed to set role. Please try again.")
+      setError(e?.message || "Failed to set role. Please try again.")
     } finally {
       setLoading(null)
     }
