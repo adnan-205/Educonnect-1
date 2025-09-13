@@ -4,12 +4,16 @@ import dotenv from 'dotenv';
 import cors, { CorsOptions } from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import compression from 'compression';
+import mongoSanitize from 'express-mongo-sanitize';
 import { errorHandler } from './middleware/error';
+import { requestLogger } from './middleware/logger';
 import authRoutes from './routes/auth';
 import gigRoutes from './routes/gigs';
 import bookingRoutes from './routes/bookings';
 import userRoutes from './routes/users';
 import uploadRoutes from './routes/uploads';
+import healthRoutes from './routes/health';
 
 // Load env vars
 dotenv.config();
@@ -17,12 +21,41 @@ dotenv.config();
 // Create Express app
 const app = express();
 
-// Body parser (increased limits for image thumbnails, etc.)
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ limit: '5mb', extended: true }));
+// Trust proxy for production deployments behind reverse proxy
+if (process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', 1);
+}
+
+// Request logging middleware
+app.use(requestLogger);
+
+// Compression middleware for better performance
+app.use(compression());
+
+// Body parser with configurable limits
+const maxFileSize = process.env.MAX_FILE_SIZE || '5mb';
+app.use(express.json({ limit: maxFileSize }));
+app.use(express.urlencoded({ limit: maxFileSize, extended: true }));
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// NoSQL injection protection
+app.use(mongoSanitize());
 // Robust CORS config for local dev and configurable origins
 const corsEnv = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '';
 const allowedOriginsFromEnv = corsEnv
@@ -33,25 +66,50 @@ const allowedOriginsFromEnv = corsEnv
 // Allow common local dev origins: localhost, 127.0.0.1, and typical LAN IP ranges
 const devOriginRegex = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.[0-9]{1,3}\.[0-9]{1,3}|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}):\d+$/;
 
+// Render.com specific patterns
+const renderOriginRegex = /^https:\/\/.*\.onrender\.com$/;
+
 const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     // Allow same-origin or non-browser requests (no origin)
     if (!origin) return callback(null, true);
+    
+    // Allow configured origins
     if (allowedOriginsFromEnv.includes(origin)) return callback(null, true);
-    if (devOriginRegex.test(origin)) return callback(null, true);
+    
+    // Allow development origins
+    if (process.env.NODE_ENV === 'development' && devOriginRegex.test(origin)) {
+      return callback(null, true);
+    }
+    
+    // Allow Render.com subdomains
+    if (renderOriginRegex.test(origin)) return callback(null, true);
+    
     return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  // Broaden headers to avoid preflight failures in browsers that send X-Requested-With, etc.
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
 };
 app.use(cors(corsOptions));
 
-// Rate limiting
+// Enhanced rate limiting with configurable options
+const rateLimitWindow = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'); // 15 minutes default
+const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100');
+
 const limiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  windowMs: rateLimitWindow,
+  max: rateLimitMax,
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: Math.ceil(rateLimitWindow / 1000)
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for health checks
+    return req.path === '/health' || req.path === '/api/health';
+  }
 });
 app.use(limiter);
 
@@ -81,6 +139,10 @@ app.get('/', (req, res) => {
   });
 });
 
+// Health check routes (before authentication)
+app.use('/health', healthRoutes);
+app.use('/api/health', healthRoutes);
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/gigs', gigRoutes);
@@ -97,13 +159,48 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Error handler
 app.use(errorHandler);
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI!)
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.log('MongoDB connection error: ' + err));
+// Enhanced MongoDB connection with production settings
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI!, {
+      maxPoolSize: parseInt(process.env.DB_MAX_POOL_SIZE || '10'),
+      minPoolSize: parseInt(process.env.DB_MIN_POOL_SIZE || '5'),
+      maxIdleTimeMS: parseInt(process.env.DB_MAX_IDLE_TIME_MS || '30000'),
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      bufferCommands: false
+    });
+    
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    
+    // Handle connection events
+    mongoose.connection.on('error', (err) => {
+      console.error('MongoDB connection error:', err);
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      console.warn('MongoDB disconnected');
+    });
+    
+    // Graceful shutdown
+    process.on('SIGINT', async () => {
+      await mongoose.connection.close();
+      console.log('MongoDB connection closed through app termination');
+      process.exit(0);
+    });
+    
+  } catch (error) {
+    console.error('MongoDB connection failed:', error);
+    process.exit(1);
+  }
+};
+
+connectDB();
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+
+app.listen(PORT, HOST, () => {
+  console.log(`Server is running in ${process.env.NODE_ENV} mode on ${HOST}:${PORT}`);
 });
