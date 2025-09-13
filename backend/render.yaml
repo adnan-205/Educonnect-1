@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: educonnect-backend
+    env: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: TRUST_PROXY
+        value: true
+      - key: MONGODB_URI
+        fromDatabase:
+          name: educonnect-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: BCRYPT_ROUNDS
+        value: 12
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+      - key: MAX_FILE_SIZE
+        value: 10485760
+      - key: MAX_FILES_PER_REQUEST
+        value: 5
+      - key: LOG_LEVEL
+        value: info
+      - key: SECURE_COOKIES
+        value: true
+
+databases:
+  - name: educonnect-db
+    databaseName: educonnect
+    user: educonnect
