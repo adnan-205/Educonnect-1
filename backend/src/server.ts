@@ -39,14 +39,7 @@ app.use(express.urlencoded({ limit: maxFileSize, extended: true }));
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
+  contentSecurityPolicy: false, // Disable CSP for now to avoid conflicts
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,
@@ -198,7 +191,7 @@ const connectDB = async () => {
 connectDB();
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(process.env.PORT || '5000', 10);
 const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
 app.listen(PORT, HOST, () => {
