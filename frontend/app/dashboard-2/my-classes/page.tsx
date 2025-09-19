@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { bookingsApi } from "@/services/api"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, Clock, Video, User } from "lucide-react"
+import { Calendar, Clock, Video, User, ExternalLink, Share2, Play } from "lucide-react"
 
 export default function MyClassesPage() {
     const [classes, setClasses] = useState<any[]>([])
@@ -34,12 +34,31 @@ export default function MyClassesPage() {
         }
     }
 
-    const handleJoinClass = (classId: string) => {
-        // In a real app, this would open the video call interface
-        toast({
-            title: "Joining Class",
-            description: "Opening video call interface..."
-        })
+    const handleJoinClass = (meetingLink: string, gigTitle: string) => {
+        if (meetingLink) {
+            // Open Jitsi meeting in new tab
+            window.open(meetingLink, '_blank');
+            toast({
+                title: "Joining Class",
+                description: `Opening ${gigTitle} class meeting...`
+            });
+        } else {
+            toast({
+                title: "No Meeting Link",
+                description: "Meeting link not available. Please contact the student.",
+                variant: "destructive"
+            });
+        }
+    }
+
+    const handleCopyMeetingLink = (meetingLink: string) => {
+        if (meetingLink) {
+            navigator.clipboard.writeText(meetingLink);
+            toast({
+                title: "Link Copied",
+                description: "Meeting link copied to clipboard"
+            });
+        }
     }
 
     const handleMarkComplete = async (bookingId: string) => {
@@ -156,14 +175,40 @@ export default function MyClassesPage() {
                                             {classItem.status}
                                         </Badge>
                                         <div className="flex gap-2">
-                                            {isClassToday(classItem.scheduledDate) && classItem.status === "accepted" && (
+                                            {classItem.status === "accepted" && classItem.meetingLink && (
+                                                <>
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => handleJoinClass(classItem.meetingLink, classItem.gig?.title)}
+                                                        className={`${isClassToday(classItem.scheduledDate) 
+                                                            ? 'bg-green-600 hover:bg-green-700' 
+                                                            : 'bg-blue-600 hover:bg-blue-700'}`}
+                                                    >
+                                                        {isClassToday(classItem.scheduledDate) ? (
+                                                            <Play className="h-4 w-4 mr-1" />
+                                                        ) : (
+                                                            <Video className="h-4 w-4 mr-1" />
+                                                        )}
+                                                        {isClassToday(classItem.scheduledDate) ? 'Join Now' : 'Join Class'}
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleCopyMeetingLink(classItem.meetingLink)}
+                                                        title="Copy meeting link"
+                                                    >
+                                                        <Share2 className="h-4 w-4" />
+                                                    </Button>
+                                                </>
+                                            )}
+                                            {classItem.status === "accepted" && !classItem.meetingLink && (
                                                 <Button
                                                     size="sm"
-                                                    onClick={() => handleJoinClass(classItem._id)}
-                                                    className="bg-blue-600 hover:bg-blue-700"
+                                                    variant="outline"
+                                                    disabled
                                                 >
-                                                    <Video className="h-4 w-4 mr-1" />
-                                                    Join Class
+                                                    <Clock className="h-4 w-4 mr-1" />
+                                                    Meeting Link Pending
                                                 </Button>
                                             )}
                                             {classItem.status === "accepted" && (

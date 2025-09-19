@@ -4,6 +4,7 @@ import {
   getBooking,
   createBooking,
   updateBookingStatus,
+  getTeacherDashboardStats,
 } from '../controllers/bookings';
 import { protect, authorize } from '../middleware/auth';
 
@@ -16,6 +17,10 @@ router
   .route('/')
   .get(getBookings)
   .post(authorize('student'), createBooking);
+
+router
+  .route('/dashboard/stats')
+  .get(authorize('teacher'), getTeacherDashboardStats);
 
 router
   .route('/:id')

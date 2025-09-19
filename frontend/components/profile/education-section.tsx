@@ -39,7 +39,7 @@ export function EducationSection({ education, onUpdate, isEditable = true }: Edu
     if (!formData.degree || !formData.institution || !formData.startDate) return
 
     const newEducation: Education = {
-      id: editingEducation?.id || Date.now().toString(),
+      id: editingEducation?.id || `edu_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       degree: formData.degree!,
       institution: formData.institution!,
       location: formData.location || "",
@@ -238,8 +238,8 @@ export function EducationSection({ education, onUpdate, isEditable = true }: Edu
           </p>
         ) : (
           <div className="space-y-6">
-            {education.map((educationItem) => (
-              <div key={educationItem.id} className="border-b last:border-b-0 pb-6 last:pb-0">
+            {education.map((educationItem, index) => (
+              <div key={educationItem.id || `education-${index}`} className="border-b last:border-b-0 pb-6 last:pb-0">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg">{educationItem.degree}</h3>

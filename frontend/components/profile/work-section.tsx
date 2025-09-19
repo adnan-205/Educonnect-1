@@ -38,7 +38,7 @@ export function WorkSection({ work, onUpdate, isEditable = true }: WorkSectionPr
     if (!formData.position || !formData.company || !formData.startDate) return
 
     const newWork: Work = {
-      id: editingWork?.id || Date.now().toString(),
+      id: editingWork?.id || `work_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       position: formData.position!,
       company: formData.company!,
       location: formData.location || "",
@@ -237,8 +237,8 @@ export function WorkSection({ work, onUpdate, isEditable = true }: WorkSectionPr
           </p>
         ) : (
           <div className="space-y-6">
-            {work.map((workItem) => (
-              <div key={workItem.id} className="border-b last:border-b-0 pb-6 last:pb-0">
+            {work.map((workItem, index) => (
+              <div key={workItem.id || `work-${index}`} className="border-b last:border-b-0 pb-6 last:pb-0">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg">{workItem.position}</h3>

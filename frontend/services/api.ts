@@ -53,24 +53,102 @@ export const usersApi = {
 export const uploadsApi = {
   uploadImage: async (file: File, folder?: string) => {
     try {
+      console.log('Uploading image:', { fileName: file.name, fileSize: file.size, fileType: file.type });
+      
       const form = new FormData();
       form.append('file', file);
-      const response = await api.post(`/uploads/image${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`, form);
+      
+      // Create a custom config for file uploads - let browser set Content-Type with boundary
+      const response = await api.post(`/uploads/image${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`, form, {
+        headers: {
+          'Content-Type': undefined, // Let browser set multipart/form-data with boundary
+        },
+        timeout: 60000, // 60 seconds timeout for uploads
+      });
+      
+      console.log('Image upload successful:', response.data);
       return response.data;
-    } catch (error) {
-      console.error('Error uploading image:', error);
+    } catch (error: any) {
+      console.error('Error uploading image:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+        }
+      });
       throw error;
     }
   },
 
   uploadVideo: async (file: File, folder?: string) => {
     try {
+      console.log('Uploading video:', { fileName: file.name, fileSize: file.size, fileType: file.type });
+      
       const form = new FormData();
       form.append('file', file);
-      const response = await api.post(`/uploads/video${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`, form);
+      
+      // Create a custom config for file uploads - let browser set Content-Type with boundary
+      const response = await api.post(`/uploads/video${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`, form, {
+        headers: {
+          'Content-Type': undefined, // Let browser set multipart/form-data with boundary
+        },
+        timeout: 120000, // 2 minutes timeout for video uploads
+      });
+      
+      console.log('Video upload successful:', response.data);
       return response.data;
-    } catch (error) {
-      console.error('Error uploading video:', error);
+    } catch (error: any) {
+      console.error('Error uploading video:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+        }
+      });
+      throw error;
+    }
+  },
+
+  uploadGigThumbnail: async (file: File, gigId: string, folder?: string) => {
+    try {
+      console.log('Uploading gig thumbnail:', { fileName: file.name, fileSize: file.size, fileType: file.type, gigId });
+      
+      const form = new FormData();
+      form.append('file', file);
+      
+      const queryParams = new URLSearchParams();
+      queryParams.append('gigId', gigId);
+      if (folder) {
+        queryParams.append('folder', folder);
+      }
+      
+      // Create a custom config for file uploads - let browser set Content-Type with boundary
+      const response = await api.post(`/uploads/gig-thumbnail?${queryParams.toString()}`, form, {
+        headers: {
+          'Content-Type': undefined, // Let browser set multipart/form-data with boundary
+        },
+        timeout: 60000, // 60 seconds timeout for uploads
+      });
+      
+      console.log('Gig thumbnail upload successful:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error uploading gig thumbnail:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+        }
+      });
       throw error;
     }
   },
@@ -270,12 +348,23 @@ export const bookingsApi = {
     }
   },
 
-  getMyBookings: async () => {
+  getMyBookings: async (status?: string) => {
     try {
-      const response = await api.get('/bookings');
+      const url = status ? `/bookings?status=${status}` : '/bookings';
+      const response = await api.get(url);
       return response.data;
     } catch (error) {
       console.error('Error fetching bookings:', error);
+      throw error;
+    }
+  },
+
+  getTeacherDashboardStats: async () => {
+    try {
+      const response = await api.get('/bookings/dashboard/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching teacher dashboard stats:', error);
       throw error;
     }
   },

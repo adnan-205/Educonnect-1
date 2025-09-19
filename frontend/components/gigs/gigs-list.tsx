@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { gigs } from '@/services/api';
+import { gigsApi } from '@/services/api';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { BookOpen } from 'lucide-react';
 
 interface Gig {
   _id: string;
@@ -13,6 +14,7 @@ interface Gig {
   price: number;
   category: string;
   duration: number;
+  thumbnailUrl?: string;
   teacher: {
     name: string;
     email: string;
@@ -30,7 +32,7 @@ export default function GigsList() {
 
   const loadGigs = async () => {
     try {
-      const response = await gigs.getAll();
+      const response = await gigsApi.getAllGigs();
       setGigsList(response.data);
     } catch (error) {
       console.error('Error loading gigs:', error);
@@ -46,7 +48,19 @@ export default function GigsList() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
       {gigsList.map((gig) => (
-        <Card key={gig._id}>
+        <Card key={gig._id} className="overflow-hidden">
+          {/* Thumbnail */}
+          <div className="aspect-video w-full bg-gradient-to-br from-primary/10 to-purple-500/10 grid place-items-center overflow-hidden">
+            {gig.thumbnailUrl ? (
+              <img
+                src={gig.thumbnailUrl}
+                alt={gig.title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <BookOpen className="h-12 w-12 text-primary/50" />
+            )}
+          </div>
           <CardHeader>
             <h3 className="text-lg font-semibold">{gig.title}</h3>
             <p className="text-sm text-gray-500">by {gig.teacher.name}</p>

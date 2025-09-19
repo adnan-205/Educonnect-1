@@ -38,7 +38,7 @@ export function ExperienceSection({ experiences, onUpdate, isEditable = true }: 
     if (!formData.title || !formData.company || !formData.startDate) return
 
     const newExperience: Experience = {
-      id: editingExperience?.id || Date.now().toString(),
+      id: editingExperience?.id || `exp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       title: formData.title!,
       company: formData.company!,
       location: formData.location || "",
@@ -237,8 +237,8 @@ export function ExperienceSection({ experiences, onUpdate, isEditable = true }: 
           </p>
         ) : (
           <div className="space-y-6">
-            {experiences.map((experience) => (
-              <div key={experience.id} className="border-b last:border-b-0 pb-6 last:pb-0">
+            {experiences.map((experience, index) => (
+              <div key={experience.id || `experience-${index}`} className="border-b last:border-b-0 pb-6 last:pb-0">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg">{experience.title}</h3>

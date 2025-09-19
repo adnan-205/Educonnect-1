@@ -42,6 +42,7 @@ interface Booking {
     scheduledDate: string
     status: "pending" | "accepted" | "completed" | "rejected"
     meetingLink?: string
+    meetingRoomId?: string
     notes?: string
     createdAt: string
 }
@@ -102,15 +103,19 @@ export default function JoinClassPage() {
         setFilteredBookings(filtered)
     }
 
-    const handleJoinClass = (meetingLink: string) => {
-        if (meetingLink) {
-            window.open(meetingLink, '_blank')
+    const handleJoinClass = (booking: Booking) => {
+        if (booking.meetingLink && booking.meetingRoomId) {
+            // Navigate to the video call page
+            window.open(`/dashboard-2/video-call/${booking.meetingRoomId}`, '_blank');
+        } else if (booking.meetingLink) {
+            // Fallback to external link
+            window.open(booking.meetingLink, '_blank');
         } else {
             toast({
                 title: "No Meeting Link",
                 description: "The teacher hasn't provided a meeting link yet. Please contact them directly.",
                 variant: "destructive"
-            })
+            });
         }
     }
 
@@ -294,7 +299,7 @@ export default function JoinClassPage() {
                                             
                                             {booking.status === "accepted" && (
                                                 <Button
-                                                    onClick={() => handleJoinClass(booking.meetingLink || "")}
+                                                    onClick={() => handleJoinClass(booking)}
                                                     className={`flex items-center gap-2 ${canJoin ? 'bg-green-600 hover:bg-green-700' : ''}`}
                                                     disabled={!booking.meetingLink}
                                                 >

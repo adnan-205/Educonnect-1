@@ -55,7 +55,12 @@ app.use(helmet({
 }));
 
 // NoSQL injection protection
-app.use(mongoSanitize());
+// app.use(mongoSanitize());
+// NOTE: Disabled temporarily due to Express 5's read-only req.query property,
+// which causes "Cannot set property query ... which has only a getter" when
+// middlewares try to reassign req.query. Consider upgrading express-mongo-sanitize
+// for Express 5 compatibility or implementing a custom sanitizer that mutates
+// objects without reassigning req.query.
 // Robust CORS config for local dev and configurable origins
 const corsEnv = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '';
 const allowedOriginsFromEnv = corsEnv
@@ -92,6 +97,8 @@ const corsOptions: CorsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
 };
 app.use(cors(corsOptions));
+// Enable CORS preflight for all routes
+app.options(/.*/, cors(corsOptions));
 
 // Enhanced rate limiting with configurable options
 const rateLimitWindow = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'); // 15 minutes default
@@ -191,7 +198,9 @@ const connectDB = async () => {
     
   } catch (error) {
     console.error('MongoDB connection failed:', error);
-    process.exit(1);
+    // Do not exit the process to allow the API server to start and respond
+    // to health checks and other requests. Many routes will still fail until
+    // the database is reachable, but this avoids opaque network errors in the UI.
   }
 };
 

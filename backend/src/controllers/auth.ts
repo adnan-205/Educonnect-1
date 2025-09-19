@@ -4,9 +4,13 @@ import User from '../models/User';
 
 // Helper function to generate JWT token
 const generateToken = (userId: string) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET!, {
-    expiresIn: process.env.JWT_EXPIRE,
-  });
+  return jwt.sign(
+    { id: userId },
+    process.env.JWT_SECRET || 'devsecret',
+    {
+      expiresIn: process.env.JWT_EXPIRE || '30d',
+    }
+  );
 };
 
 // Clerk sync: upsert a user by email (coming from Clerk) and return backend JWT
@@ -36,9 +40,11 @@ export const clerkSync = async (req: Request, res: Response) => {
     }
 
     // Issue backend JWT
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET!, {
-      expiresIn: process.env.JWT_EXPIRE,
-    });
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || 'devsecret',
+      { expiresIn: process.env.JWT_EXPIRE || '30d' }
+    );
 
     res.json({
       success: true,
@@ -48,6 +54,8 @@ export const clerkSync = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isOnboarded: (user as any).isOnboarded ?? false,
+        marketingSource: (user as any).marketingSource,
       },
     });
   } catch (err) {
@@ -72,7 +80,7 @@ export const register = async (req: Request, res: Response) => {
       });
     }
 
-    if (!['student', 'teacher'].includes(role)) {
+    if (!['student', 'teacher', 'admin'].includes(role)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid role specified',
@@ -97,9 +105,11 @@ export const register = async (req: Request, res: Response) => {
     });
 
     // Create token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET!, {
-      expiresIn: process.env.JWT_EXPIRE,
-    });
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || 'devsecret',
+      { expiresIn: process.env.JWT_EXPIRE || '30d' }
+    );
 
     res.status(201).json({
       success: true,
@@ -109,6 +119,8 @@ export const register = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isOnboarded: (user as any).isOnboarded ?? false,
+        marketingSource: (user as any).marketingSource,
       },
     });
   } catch (err) {
@@ -123,7 +135,7 @@ export const updateRole = async (req: Request, res: Response) => {
   try {
     const { email, role } = req.body;
 
-    if (!email || !role || !["student", "teacher"].includes(role)) {
+    if (!email || !role || !["student", "teacher", "admin"].includes(role)) {
       return res.status(400).json({
         success: false,
         message: "Invalid role or email",
@@ -184,7 +196,7 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // Check if password matches
-    const isMatch = await user.matchPassword(password);
+    const isMatch = await (user as any).matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -193,9 +205,11 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // Create token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET!, {
-      expiresIn: process.env.JWT_EXPIRE,
-    });
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || 'devsecret',
+      { expiresIn: process.env.JWT_EXPIRE || '30d' }
+    );
 
     res.json({
       success: true,
@@ -205,6 +219,8 @@ export const login = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isOnboarded: (user as any).isOnboarded ?? false,
+        marketingSource: (user as any).marketingSource,
       },
     });
   } catch (err) {

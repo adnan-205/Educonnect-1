@@ -28,9 +28,11 @@ export default function PostAuthPage() {
           if (backendUser?.role) {
             localStorage.setItem("role", backendUser.role)
           }
+          // Determine if onboarding is needed
           const role = backendUser?.role || localStorage.getItem("role")
-          if (!role) {
-            router.replace("/role-selection")
+          const needsOnboarding = !backendUser?.name || !role || backendUser?.isOnboarded !== true
+          if (needsOnboarding) {
+            router.replace("/onboarding")
             return
           }
           router.replace("/dashboard-2")

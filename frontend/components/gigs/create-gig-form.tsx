@@ -1,17 +1,47 @@
 'use client';
 
-import { useState } from 'react';
-import { gigs } from '@/services/api';
+import { useState, useRef } from 'react';
+import { gigsApi, uploadsApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
+import { Upload, Image as ImageIcon } from 'lucide-react';
 
 export default function CreateGigForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file for thumbnail');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Thumbnail file size must be less than 5MB');
+        return;
+      }
+
+      setThumbnailFile(file);
+      
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      setThumbnailPreview(previewUrl);
+      setError(''); // Clear any previous errors
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,9 +63,28 @@ export default function CreateGigForm() {
     };
 
     try {
-      await gigs.create(gigData);
+      // First create the gig
+      const createdGig = await gigsApi.createGig(gigData);
+      const gigId = createdGig.data._id;
+
+      // If thumbnail is selected, upload it
+      if (thumbnailFile && gigId) {
+        setUploading(true);
+        try {
+          await uploadsApi.uploadGigThumbnail(thumbnailFile, gigId, 'educonnect/gigs/thumbnails');
+        } catch (uploadErr: any) {
+          console.error('Thumbnail upload failed:', uploadErr);
+          // Don't fail the entire process if thumbnail upload fails
+          setError('Gig created successfully, but thumbnail upload failed. You can add a thumbnail later.');
+        } finally {
+          setUploading(false);
+        }
+      }
+
       setSuccess(true);
       e.currentTarget.reset();
+      setThumbnailFile(null);
+      setThumbnailPreview(null);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create gig');
     } finally {
@@ -123,8 +172,54 @@ export default function CreateGigForm() {
               placeholder="Enter category"
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Creating...' : 'Create Gig'}
+          
+          {/* Thumbnail Upload Section */}
+          <div>
+            <Label htmlFor="thumbnail" className="block text-sm font-medium mb-2">
+              Gig Thumbnail (Optional)
+            </Label>
+            <div className="space-y-4">
+              <Input
+                ref={fileInputRef}
+                id="thumbnail"
+                type="file"
+                accept="image/*"
+                onChange={handleThumbnailSelect}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {thumbnailFile ? thumbnailFile.name : "Choose Thumbnail Image"}
+              </Button>
+              
+              {thumbnailFile && (
+                <div className="text-sm text-muted-foreground">
+                  File: {thumbnailFile.name} ({(thumbnailFile.size / (1024 * 1024)).toFixed(2)} MB)
+                </div>
+              )}
+              
+              {thumbnailPreview && (
+                <div className="mt-4">
+                  <Label className="block text-sm font-medium mb-2">Preview:</Label>
+                  <div className="relative w-32 h-20 bg-muted rounded-lg overflow-hidden">
+                    <img
+                      src={thumbnailPreview}
+                      alt="Thumbnail preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <Button type="submit" className="w-full" disabled={loading || uploading}>
+            {loading ? (uploading ? 'Creating & Uploading...' : 'Creating...') : 'Create Gig'}
           </Button>
         </form>
       </CardContent>

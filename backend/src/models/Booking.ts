@@ -25,6 +25,14 @@ const bookingSchema = new mongoose.Schema<IBooking>({
     type: String,
     required: [true, 'Please add a scheduled time'],
   },
+  meetingLink: {
+    type: String,
+    required: false,
+  },
+  meetingRoomId: {
+    type: String,
+    required: false,
+  },
 }, {
   timestamps: true,
 });

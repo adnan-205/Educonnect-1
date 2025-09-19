@@ -25,9 +25,9 @@ export default function DashboardLayout({
     const [userType, setUserType] = useState<"student" | "teacher" | "admin" | null>(null)
     const router = useRouter()
     const pathname = usePathname()
-    const { isLoaded, isSignedIn } = useUser()
+    const { isLoaded, isSignedIn, user } = useUser()
 
-    // Auth + role guard: must be signed in and have a role set
+    // Auth + role + onboarding guard
     useEffect(() => {
         if (!isLoaded) return
         if (!isSignedIn) {
@@ -39,17 +39,25 @@ export default function DashboardLayout({
             router.replace("/role-selection")
             return
         }
+        try {
+            const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null
+            const u = userStr ? JSON.parse(userStr) : null
+            if (!u?.isOnboarded) {
+                router.replace('/onboarding')
+                return
+            }
+        } catch {}
     }, [isLoaded, isSignedIn, router])
 
     // Get user type from localStorage
     useEffect(() => {
         if (typeof window !== "undefined") {
-            const role = localStorage.getItem("role") as "student" | "teacher" | null
+            const role = localStorage.getItem("role") as "student" | "teacher" | "admin" | null
             setUserType(role)
 
             // Listen for storage changes (e.g., login/logout in another tab)
             const handleStorage = () => {
-                const newRole = localStorage.getItem("role") as "student" | "teacher" | null
+                const newRole = localStorage.getItem("role") as "student" | "teacher" | "admin" | null
                 setUserType(newRole)
             }
             window.addEventListener("storage", handleStorage)
@@ -101,11 +109,16 @@ export default function DashboardLayout({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                         <Avatar className="h-10 w-10">
-                            <AvatarImage src="/placeholder.jpg" />
-                            <AvatarFallback className="text-sm font-semibold">JD</AvatarFallback>
+                            <AvatarImage src={user?.imageUrl || "/placeholder.jpg"} />
+                            <AvatarFallback className="text-sm font-semibold">
+                                {user?.firstName?.[0] || 'U'}
+                                {user?.lastName?.[0] || 'U'}
+                            </AvatarFallback>
                         </Avatar>
                         <div>
-                            <h2 className="text-lg font-semibold text-gray-900">John Doe</h2>
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                {user?.fullName || 'Unnamed User'}
+                            </h2>
                             <p className="text-sm text-gray-500 capitalize">{userType}</p>
                         </div>
                     </div>
@@ -155,11 +168,14 @@ export default function DashboardLayout({
                             className="group transition-transform hover:scale-105"
                         >
                             <Avatar className="h-16 w-16 mx-auto mb-3 group-hover:ring-2 group-hover:ring-blue-300 transition-all">
-                                <AvatarImage src="/placeholder.jpg" />
-                                <AvatarFallback className="text-lg font-semibold">JD</AvatarFallback>
+                                <AvatarImage src={user?.imageUrl || "/placeholder.jpg"} />
+                                <AvatarFallback className="text-lg font-semibold">
+                                    {user?.firstName?.[0] || 'U'}
+                                    {user?.lastName?.[0] || 'U'}
+                                </AvatarFallback>
                             </Avatar>
                             <h2 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                John Doe
+                                {user?.fullName || 'Unnamed User'}
                             </h2>
                             <p className="text-sm text-gray-500 capitalize">{userType}</p>
                         </Link>

@@ -7,12 +7,16 @@ declare module "next-auth" {
     name: string
     role: string
     avatar?: string
+    isOnboarded?: boolean
+    marketingSource?: string
   }
 
   interface Session {
     user: User & {
       id: string
       role: string
+      isOnboarded?: boolean
+      marketingSource?: string
     }
   }
 }

@@ -3,10 +3,27 @@
 import { useEffect } from "react"
 import { ThemeProvider } from "@/components/theme-provider"
 import { useUser } from "@clerk/nextjs"
-import { api } from "@/services/api"
+import { api, setAuthTokenProvider } from "@/services/api"
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, isLoaded, user } = useUser()
+  const { isSignedIn, isLoaded, user, getToken } = useUser()
+
+  // Set up Clerk token provider for API calls
+  useEffect(() => {
+    if (getToken) {
+      setAuthTokenProvider(async () => {
+        try {
+          // Get token from Clerk
+          const token = await getToken()
+          return token
+        } catch (error) {
+          console.error('Error getting Clerk token:', error)
+          // Fallback to localStorage token
+          return typeof window !== 'undefined' ? localStorage.getItem('token') : null
+        }
+      })
+    }
+  }, [getToken])
 
   useEffect(() => {
     const syncBackendToken = async () => {

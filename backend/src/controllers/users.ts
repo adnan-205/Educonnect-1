@@ -54,6 +54,14 @@ export const updateMe = async (req: Request, res: Response) => {
     if (typeof req.body.avatar === 'string') patch['avatar'] = req.body.avatar;
     if (typeof req.body.coverImage === 'string') patch['coverImage'] = req.body.coverImage;
 
+    // Onboarding fields
+    if (typeof req.body.marketingSource === 'string') patch['marketingSource'] = req.body.marketingSource;
+    if (typeof req.body.isOnboarded === 'boolean') patch['isOnboarded'] = req.body.isOnboarded;
+    // Optional role update (limit to known roles)
+    if (typeof req.body.role === 'string' && ['student','teacher','admin'].includes(req.body.role)) {
+      patch['role'] = req.body.role;
+    }
+
     // Nested profile fields via dot-notation (merges without wiping unspecified keys)
     const p = req.body.profile || {};
     if (p && typeof p === 'object') {
@@ -71,7 +79,7 @@ export const updateMe = async (req: Request, res: Response) => {
     }
 
     const updated = await User.findByIdAndUpdate(userId, { $set: patch }, { new: true })
-      .select('name email role profile avatar coverImage phone location headline');
+      .select('name email role isOnboarded marketingSource profile avatar coverImage phone location headline');
 
     res.json({ success: true, data: updated });
   } catch (err) {

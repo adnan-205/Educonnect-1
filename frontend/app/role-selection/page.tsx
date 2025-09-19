@@ -37,7 +37,7 @@ export default function RoleSelectionPage() {
       }
       // Store role for dashboards that still reference localStorage
       localStorage.setItem("role", role)
-      router.replace("/dashboard-2")
+      router.replace("/onboarding")
     } catch (e: any) {
       setError(e?.message || "Failed to set role. Please try again.")
     } finally {

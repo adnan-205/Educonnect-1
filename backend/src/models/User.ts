@@ -68,9 +68,15 @@ const userSchema = new mongoose.Schema<IUser>({
   },
   role: {
     type: String,
-    enum: ['student', 'teacher'],
+    enum: ['student', 'teacher', 'admin'],
     required: true,
   },
+  // Onboarding status and marketing attribution
+  isOnboarded: {
+    type: Boolean,
+    default: false,
+  },
+  marketingSource: { type: String },
   // Optional contact and headline
   phone: { type: String },
   location: { type: String },

@@ -3,12 +3,27 @@ import cloudinary from '../utils/cloudinary';
 
 export const uploadImage = async (req: Request, res: Response) => {
   try {
+    console.log('Upload image request received:', {
+      query: req.query,
+      headers: req.headers,
+      user: (req as any).user?.email,
+      fileExists: !!(req as any).file
+    });
+    
     const folder = (req.query.folder as string) || 'educonnect/images';
     const file = (req as any).file as any;
 
     if (!file) {
+      console.log('No file in request');
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
+
+    console.log('File details:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      bufferLength: file.buffer?.length
+    });
 
     const result = await new Promise<any>((resolve, reject) => {
       const cldStream = cloudinary.uploader.upload_stream(
@@ -26,6 +41,12 @@ export const uploadImage = async (req: Request, res: Response) => {
       } else {
         reject(new Error('Invalid uploaded file: missing buffer/stream'));
       }
+    });
+
+    console.log('Cloudinary upload successful:', {
+      url: result.secure_url,
+      public_id: result.public_id,
+      bytes: result.bytes
     });
 
     res.json({

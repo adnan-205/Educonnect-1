@@ -49,7 +49,10 @@ export interface IUser {
   name: string;
   email: string;
   password: string;
-  role: 'student' | 'teacher';
+  role: 'student' | 'teacher' | 'admin';
+  // Onboarding
+  isOnboarded?: boolean;
+  marketingSource?: string;
   // Optional contact and presentation
   phone?: string;
   location?: string;
@@ -99,6 +102,8 @@ export interface IBooking {
   status: 'pending' | 'accepted' | 'rejected' | 'completed';
   scheduledDate: Date;
   scheduledTime: string;
+  meetingLink?: string;
+  meetingRoomId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

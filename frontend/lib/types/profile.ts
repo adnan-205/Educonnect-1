@@ -46,6 +46,8 @@ export interface UserProfile {
   coverImage?: string
   headline: string
   userType: 'student' | 'teacher'
+  isOnboarded?: boolean
+  marketingSource?: string
 
   // Professional sections
   experiences: Experience[]
