@@ -5,7 +5,6 @@ import cors, { CorsOptions } from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
-import mongoSanitize from 'express-mongo-sanitize';
 import { errorHandler } from './middleware/error';
 import { requestLogger } from './middleware/logger';
 import authRoutes from './routes/auth';
@@ -47,8 +46,30 @@ app.use(helmet({
   }
 }));
 
-// NoSQL injection protection
-app.use(mongoSanitize());
+// NoSQL injection protection (Express 5 compatible)
+// express-mongo-sanitize attempts to reassign req.query which is readonly in Express 5.
+// We implement a safe in-place sanitizer instead.
+const removeUnsafeKeys = (obj: any) => {
+  if (!obj || typeof obj !== 'object') return;
+  for (const key of Object.keys(obj)) {
+    if (key.startsWith('$') || key.includes('.')) {
+      delete (obj as any)[key];
+      continue;
+    }
+    const val = (obj as any)[key];
+    if (val && typeof val === 'object') removeUnsafeKeys(val);
+  }
+};
+app.use((req, _res, next) => {
+  try {
+    if (req.body && typeof req.body === 'object') removeUnsafeKeys(req.body);
+    if (req.query && typeof req.query === 'object') removeUnsafeKeys(req.query as any);
+    if (req.params && typeof req.params === 'object') removeUnsafeKeys(req.params as any);
+  } catch {
+    // ignore sanitize errors
+  }
+  next();
+});
 // Robust CORS config for local dev and configurable origins
 const corsEnv = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '';
 const allowedOriginsFromEnv = corsEnv

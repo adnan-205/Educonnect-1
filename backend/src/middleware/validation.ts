@@ -103,9 +103,12 @@ export const validateBookingCreation = [
   
   body('scheduledDate')
     .isISO8601()
-    .toDate()
     .custom((value) => {
-      if (new Date(value) <= new Date()) {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid date format');
+      }
+      if (date <= new Date()) {
         throw new Error('Scheduled date must be in the future');
       }
       return true;
