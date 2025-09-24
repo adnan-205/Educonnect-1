@@ -30,12 +30,15 @@ export default function DashboardLayout({
     // Auth + role guard: must be signed in and have a role set
     useEffect(() => {
         if (!isLoaded) return
-        if (!isSignedIn) {
+        // Allow embedded video call route without sign-in to avoid loops
+        const isVideoCallRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard-2/video-call/")
+        if (!isSignedIn && !isVideoCallRoute) {
             router.replace("/sign-in")
             return
         }
+        // Allow joining embedded video call even if role not yet set
         const role = typeof window !== "undefined" ? localStorage.getItem("role") : null
-        if (!role) {
+        if (!role && !isVideoCallRoute) {
             router.replace("/role-selection")
             return
         }
@@ -82,7 +85,15 @@ export default function DashboardLayout({
         { id: "settings", label: "Settings", icon: Settings, href: "/dashboard-2/settings" }
     ]
 
-    // Show loading state while determining user type
+    // Render minimal layout for embedded video-call route (avoid nav and role checks UI)
+    const isVideoCallRoute = pathname?.startsWith('/dashboard-2/video-call/')
+    if (isVideoCallRoute) {
+        return (
+            <div className="min-h-screen bg-gray-50">{children}</div>
+        )
+    }
+
+    // Show loading state while determining user type for regular dashboard routes
     if (userType === null) {
         return (
             <div className="flex h-screen bg-gray-50 items-center justify-center">

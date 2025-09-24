@@ -25,6 +25,26 @@ const bookingSchema = new mongoose.Schema<IBooking>({
     type: String,
     required: [true, 'Please add a scheduled time'],
   },
+  // Canonical UTC datetime for the class start time
+  scheduledAt: {
+    type: Date,
+    required: false,
+    index: true,
+  },
+  // IANA timezone string of the student when booking (e.g., "Asia/Dhaka")
+  timeZone: {
+    type: String,
+    required: false,
+  },
+  // Optional meeting fields (used by Jitsi integration)
+  meetingLink: {
+    type: String,
+    required: false,
+  },
+  meetingRoomId: {
+    type: String,
+    required: false,
+  },
 }, {
   timestamps: true,
 });

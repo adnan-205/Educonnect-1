@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { bookingsApi } from "@/services/api"
+import { bookingsApi, paymentsApi } from "@/services/api"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
     Video,
@@ -18,6 +19,7 @@ import {
     Search,
     Play
 } from "lucide-react"
+import PaymentButton from "@/components/PaymentButton"
 
 interface Booking {
     _id: string
@@ -27,6 +29,7 @@ interface Booking {
         description: string
         category: string
         duration: number
+        price?: number
         teacher: {
             _id: string
             name: string
@@ -40,19 +43,25 @@ interface Booking {
         email: string
     }
     scheduledDate: string
+    scheduledAt?: string
+    timeZone?: string
     status: "pending" | "accepted" | "completed" | "rejected"
     meetingLink?: string
+    meetingRoomId?: string
     notes?: string
     createdAt: string
 }
 
 export default function JoinClassPage() {
+    const router = useRouter()
     const [bookings, setBookings] = useState<Booking[]>([])
     const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState("")
     const [selectedStatus, setSelectedStatus] = useState("all")
     const { toast } = useToast()
+    // Track payment status per gig for current student
+    const [paidMap, setPaidMap] = useState<Record<string, boolean>>({})
 
     useEffect(() => {
         fetchBookings()
@@ -62,10 +71,31 @@ export default function JoinClassPage() {
         filterBookings()
     }, [bookings, searchTerm, selectedStatus])
 
+    // Lightweight timer to re-evaluate join availability without heavy re-renders
+    const [nowTs, setNowTs] = useState<number>(() => Date.now())
+    useEffect(() => {
+        const id = setInterval(() => setNowTs(Date.now()), 30000) // 30s is enough granularity
+        return () => clearInterval(id)
+    }, [])
+
     const fetchBookings = async () => {
         try {
             const response = await bookingsApi.getMyBookings()
             setBookings(response.data)
+            // After loading bookings, prefetch payment status for accepted gigs
+            const accepted = (response.data || []).filter((b: Booking) => b.status === "accepted")
+            const uniqueGigIds = Array.from(new Set(accepted.map((b: Booking) => b.gig._id)))
+            const results: Record<string, boolean> = {}
+            for (const gid of uniqueGigIds) {
+                try {
+                    const st = await paymentsApi.getStatus(gid)
+                    results[gid] = !!st?.paid
+                } catch {
+                    // if status check fails, consider unpaid to be safe
+                    results[gid] = false
+                }
+            }
+            setPaidMap(results)
         } catch (error) {
             console.error("Error fetching bookings:", error)
             toast({
@@ -96,22 +126,41 @@ export default function JoinClassPage() {
             filtered = filtered.filter(booking => booking.status === selectedStatus)
         }
 
-        // Sort by scheduled date (upcoming first)
-        filtered.sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+        // Sort by start time (prefer scheduledAt if available)
+        const getStart = (bk: Booking) => new Date(bk.scheduledAt || bk.scheduledDate).getTime()
+        filtered.sort((a, b) => getStart(a) - getStart(b))
 
         setFilteredBookings(filtered)
     }
 
-    const handleJoinClass = (meetingLink: string) => {
-        if (meetingLink) {
-            window.open(meetingLink, '_blank')
-        } else {
+    const handleJoinClass = (booking: Booking) => {
+        const minutes = booking.gig?.duration || 90
+        // Require successful payment before allowing to join (student side)
+        const paid = paidMap[booking.gig._id] === true
+        if (!paid) {
             toast({
-                title: "No Meeting Link",
-                description: "The teacher hasn't provided a meeting link yet. Please contact them directly.",
+                title: "Payment Required",
+                description: "Please complete the payment to join this class.",
                 variant: "destructive"
             })
+            return
         }
+        if (booking.meetingRoomId) {
+            router.push(`/dashboard-2/video-call/${booking.meetingRoomId}?minutes=${minutes}`)
+            return
+        }
+        if (booking.meetingLink) {
+            const roomId = booking.meetingLink.split('/').pop() || ''
+            if (roomId) {
+                router.push(`/dashboard-2/video-call/${roomId}?minutes=${minutes}`)
+                return
+            }
+        }
+        toast({
+            title: "No Meeting Link",
+            description: "The teacher hasn't provided a meeting link yet. Please contact them directly.",
+            variant: "destructive"
+        })
     }
 
     const getStatusColor = (status: string) => {
@@ -129,16 +178,15 @@ export default function JoinClassPage() {
         }
     }
 
-    const isClassStartingSoon = (scheduledDate: string) => {
-        const now = new Date()
-        const classTime = new Date(scheduledDate)
-        const timeDiff = classTime.getTime() - now.getTime()
-        const minutesDiff = timeDiff / (1000 * 60)
-        return minutesDiff <= 15 && minutesDiff >= -5 // 15 minutes before to 5 minutes after
+    const isJoinEnabled = (bk: Booking) => {
+        const start = new Date(bk.scheduledAt || bk.scheduledDate).getTime()
+        const timeOk = nowTs >= start
+        const paid = paidMap[bk.gig._id] === true
+        return timeOk && paid // must be paid and time reached
     }
 
-    const formatDateTime = (dateString: string) => {
-        const date = new Date(dateString)
+    const formatDateTime = (bk: Booking) => {
+        const date = new Date(bk.scheduledAt || bk.scheduledDate)
         return {
             date: date.toLocaleDateString(),
             time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -222,8 +270,9 @@ export default function JoinClassPage() {
             ) : (
                 <div className="space-y-4">
                     {filteredBookings.map((booking) => {
-                        const { date, time } = formatDateTime(booking.scheduledDate)
-                        const canJoin = booking.status === "accepted" && isClassStartingSoon(booking.scheduledDate)
+                        const { date, time } = formatDateTime(booking)
+                        const canJoin = booking.status === "accepted" && isJoinEnabled(booking)
+                        const isPaid = paidMap[booking.gig._id] === true
                         
                         return (
                             <Card key={booking._id} className={`${canJoin ? 'ring-2 ring-green-500 bg-green-50' : ''}`}>
@@ -294,13 +343,17 @@ export default function JoinClassPage() {
                                             
                                             {booking.status === "accepted" && (
                                                 <Button
-                                                    onClick={() => handleJoinClass(booking.meetingLink || "")}
-                                                    className={`flex items-center gap-2 ${canJoin ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                                                    disabled={!booking.meetingLink}
+                                                    onClick={() => handleJoinClass(booking)}
+                                                    className={`flex items-center gap-2 ${canJoin ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-200 text-gray-600'}`}
+                                                    disabled={!canJoin || (!booking.meetingLink && !booking.meetingRoomId)}
                                                 >
                                                     <Play className="h-4 w-4" />
                                                     {canJoin ? "Join Now" : "Join Class"}
                                                 </Button>
+                                            )}
+                                            
+                                            {booking.status === "accepted" && !isPaid && (
+                                                <PaymentButton gigId={booking.gig._id} amount={booking.gig as any && (booking as any).gig?.price ? (booking as any).gig.price : 0} />
                                             )}
                                             
                                             {booking.status === "pending" && (

@@ -13,6 +13,7 @@ import bookingRoutes from './routes/bookings';
 import userRoutes from './routes/users';
 import uploadRoutes from './routes/uploads';
 import healthRoutes from './routes/health';
+import paymentRoutes from './routes/payments';
 
 // Load env vars
 dotenv.config();
@@ -82,23 +83,32 @@ const devOriginRegex = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.[0-9]{1,3}\.
 
 // Render.com specific patterns
 const renderOriginRegex = /^https:\/\/.*\.onrender\.com$/;
+// SSLCommerz origins (sandbox and live)
+const sslcommerzOriginRegex = /^https:\/\/(sandbox|securepay)\.sslcommerz\.com$/;
 
 const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     // Allow same-origin or non-browser requests (no origin)
     if (!origin) return callback(null, true);
-    
+
+    // Some providers (payment redirects/form posts, file://) use literal 'null' origin.
+    // Allow it to enable gateway callbacks like SSLCommerz success/fail/cancel.
+    if (origin === 'null') return callback(null, true);
+
     // Allow configured origins
     if (allowedOriginsFromEnv.includes(origin)) return callback(null, true);
-    
+
     // Allow development origins
     if (process.env.NODE_ENV === 'development' && devOriginRegex.test(origin)) {
       return callback(null, true);
     }
-    
+
     // Allow Render.com subdomains
     if (renderOriginRegex.test(origin)) return callback(null, true);
-    
+
+    // Allow SSLCommerz gateways to POST callbacks
+    if (sslcommerzOriginRegex.test(origin)) return callback(null, true);
+
     return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
@@ -148,6 +158,14 @@ app.get('/', (req, res) => {
         getBooking: 'GET /api/bookings/:id',
         createBooking: 'POST /api/bookings',
         updateBookingStatus: 'PUT /api/bookings/:id'
+      },
+      payments: {
+        init: 'POST /api/payments/init',
+        status: 'GET /api/payments/status/:gigId',
+        success: 'POST /api/payments/success/:tran_id',
+        fail: 'POST /api/payments/fail/:tran_id',
+        cancel: 'POST /api/payments/cancel/:tran_id',
+        ipn: 'POST /api/payments/ipn'
       }
     }
   });
@@ -163,6 +181,7 @@ app.use('/api/gigs', gigRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Add error logging
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -6,6 +6,7 @@ import {
   updateBookingStatus,
 } from '../controllers/bookings';
 import { protect, authorize } from '../middleware/auth';
+import { validateBookingCreation } from '../middleware/validation';
 
 const router = express.Router();
 
@@ -15,7 +16,7 @@ router.use(protect);
 router
   .route('/')
   .get(getBookings)
-  .post(authorize('student'), createBooking);
+  .post(authorize('student'), validateBookingCreation, createBooking);
 
 router
   .route('/:id')

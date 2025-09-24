@@ -5,15 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { bookingsApi } from "@/services/api"
+import { bookingsApi, paymentsApi } from "@/services/api"
 import { useToast } from "@/hooks/use-toast"
 import { Calendar, Clock, Video, User } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function MyClassesPage() {
+    const router = useRouter()
     const [classes, setClasses] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
     const { toast } = useToast()
+    const [paidMap, setPaidMap] = useState<Record<string, boolean>>({})
 
     useEffect(() => {
         loadClasses()
@@ -27,6 +30,17 @@ export default function MyClassesPage() {
             // Filter for accepted bookings (these are the actual classes)
             const acceptedClasses = (res?.data || []).filter((b: any) => b.status === "accepted")
             setClasses(acceptedClasses)
+            // Prefetch payment status per booking for teacher visibility
+            const results: Record<string, boolean> = {}
+            await Promise.all(acceptedClasses.map(async (b: any) => {
+                try {
+                    const st = await paymentsApi.getBookingStatus(b._id)
+                    results[b._id] = !!st?.paid
+                } catch {
+                    results[b._id] = false
+                }
+            }))
+            setPaidMap(results)
         } catch (e: any) {
             setError(e?.response?.data?.message || "Failed to load classes")
         } finally {
@@ -34,11 +48,28 @@ export default function MyClassesPage() {
         }
     }
 
-    const handleJoinClass = (classId: string) => {
-        // In a real app, this would open the video call interface
+    const handleJoinClass = (classItem: any) => {
+        const meetingLink = classItem?.meetingLink
+        const meetingRoomId = classItem?.meetingRoomId
+        const minutes = classItem?.gig?.duration || 90
+
+        if (meetingRoomId) {
+            router.push(`/dashboard-2/video-call/${meetingRoomId}?minutes=${minutes}`)
+            return
+        }
+
+        if (meetingLink) {
+            const roomId = (meetingLink as string).split('/').pop() || ''
+            if (roomId) {
+                router.push(`/dashboard-2/video-call/${roomId}?minutes=${minutes}`)
+                return
+            }
+        }
+
         toast({
-            title: "Joining Class",
-            description: "Opening video call interface..."
+            title: "No Meeting Link",
+            description: "Meeting link not available. Please contact the student.",
+            variant: "destructive"
         })
     }
 
@@ -69,11 +100,22 @@ export default function MyClassesPage() {
                 return "bg-yellow-100 text-yellow-800"
         }
     }
+    // Timer to re-evaluate join availability without heavy re-renders
+    const [nowTs, setNowTs] = useState<number>(() => Date.now())
+    useEffect(() => {
+        const id = setInterval(() => setNowTs(Date.now()), 30000) // 30s granularity
+        return () => clearInterval(id)
+    }, [])
 
-    const isClassToday = (date: string) => {
-        const classDate = new Date(date).toDateString()
-        const today = new Date().toDateString()
-        return classDate === today
+    const startTime = (bk: any) => new Date(bk?.scheduledAt || bk?.scheduledDate).getTime()
+    const isJoinEnabled = (bk: any) => nowTs >= startTime(bk)
+    const isClassToday = (bk: any) => new Date(bk?.scheduledAt || bk?.scheduledDate).toDateString() === new Date().toDateString()
+    const formatDateTime = (bk: any) => {
+        const d = new Date(bk?.scheduledAt || bk?.scheduledDate)
+        return {
+            date: d.toLocaleDateString(),
+            time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
     }
 
     if (loading) {
@@ -135,14 +177,14 @@ export default function MyClassesPage() {
                                             <div className="flex items-center gap-4 text-sm text-gray-500">
                                                 <div className="flex items-center gap-1">
                                                     <Calendar className="h-4 w-4" />
-                                                    {new Date(classItem.scheduledDate).toLocaleDateString()}
-                                                    {isClassToday(classItem.scheduledDate) && (
+                                                    {formatDateTime(classItem).date}
+                                                    {isClassToday(classItem) && (
                                                         <Badge className="ml-2 bg-blue-100 text-blue-800">Today</Badge>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <Clock className="h-4 w-4" />
-                                                    {classItem.scheduledTime}
+                                                    {formatDateTime(classItem).time}
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <User className="h-4 w-4" />
@@ -155,18 +197,26 @@ export default function MyClassesPage() {
                                         <Badge className={getStatusColor(classItem.status)}>
                                             {classItem.status}
                                         </Badge>
+                                        {paidMap[classItem._id] ? (
+                                            <Badge className="bg-green-100 text-green-800">Paid</Badge>
+                                        ) : (
+                                            <Badge className="bg-yellow-100 text-yellow-800">Unpaid</Badge>
+                                        )}
                                         <div className="flex gap-2">
-                                            {isClassToday(classItem.scheduledDate) && classItem.status === "accepted" && (
+                                            {classItem.status === "accepted" && (
                                                 <Button
                                                     size="sm"
-                                                    onClick={() => handleJoinClass(classItem._id)}
-                                                    className="bg-blue-600 hover:bg-blue-700"
+                                                    onClick={() => handleJoinClass(classItem)}
+                                                    className={`${isJoinEnabled(classItem) 
+                                                        ? 'bg-green-600 hover:bg-green-700' 
+                                                        : 'bg-gray-200 text-gray-600'}`}
+                                                    disabled={!isJoinEnabled(classItem) || (!classItem.meetingLink && !classItem.meetingRoomId)}
                                                 >
                                                     <Video className="h-4 w-4 mr-1" />
-                                                    Join Class
+                                                    {isJoinEnabled(classItem) ? 'Join Now' : 'Join Class'}
                                                 </Button>
                                             )}
-                                            {classItem.status === "accepted" && (
+                                            {classItem.status === "accepted" && classItem.meetingLink && (
                                                 <Button
                                                     size="sm"
                                                     variant="outline"

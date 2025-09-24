@@ -97,29 +97,65 @@ export const validateGigCreation = [
 
 // Booking validation rules
 export const validateBookingCreation = [
-  body('gigId')
-    .isMongoId()
-    .withMessage('Invalid gig ID'),
-  
-  body('scheduledDate')
+  // Validate that we have a valid gig ID in either `gig` or `gigId`
+  body().custom((_, { req }) => {
+    const gigId = req.body.gig || req.body.gigId;
+    if (!gigId) {
+      throw new Error('gig is required');
+    }
+    const isObjectId = /^[a-f\d]{24}$/i.test(gigId);
+    if (!isObjectId) {
+      throw new Error('Invalid gig ID');
+    }
+    return true;
+  }),
+
+  // Either scheduledAt OR (scheduledDate AND scheduledTime) must be provided
+  body().custom((_, { req }) => {
+    const { scheduledAt, scheduledDate, scheduledTime } = req.body || {};
+    if (!scheduledAt && !(scheduledDate && scheduledTime)) {
+      throw new Error('Provide either scheduledAt or scheduledDate and scheduledTime');
+    }
+    return true;
+  }),
+
+  // Validate scheduledAt if provided
+  body('scheduledAt')
+    .optional()
     .isISO8601()
+    .withMessage('scheduledAt must be a valid ISO date')
     .custom((value) => {
-      const date = new Date(value);
-      if (isNaN(date.getTime())) {
-        throw new Error('Invalid date format');
-      }
-      if (date <= new Date()) {
-        throw new Error('Scheduled date must be in the future');
-      }
+      const d = new Date(value);
+      if (isNaN(d.getTime())) throw new Error('scheduledAt is invalid');
       return true;
     }),
-  
+
+  // Validate scheduledDate if provided
+  body('scheduledDate')
+    .optional()
+    .isISO8601()
+    .withMessage('scheduledDate must be a valid ISO date'),
+
+  // Validate scheduledTime if provided (HH:mm)
+  body('scheduledTime')
+    .optional()
+    .matches(/^\d{2}:\d{2}$/)
+    .withMessage('scheduledTime must be in HH:mm format'),
+
+  // Optional IANA timezone string
+  body('timeZone')
+    .optional()
+    .isString()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('timeZone must be a non-empty string'),
+
+  // Optional message
   body('message')
     .optional()
     .trim()
     .isLength({ max: 500 })
     .withMessage('Message cannot exceed 500 characters'),
-  
+
   handleValidationErrors
 ];
 

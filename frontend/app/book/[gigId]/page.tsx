@@ -69,10 +69,19 @@ export default function BookGigPage() {
     setSuccess("")
     try {
       setSubmitting(true)
+      // Compute canonical UTC time for the scheduled class
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      // Build a local Date from the user's chosen date & time
+      const localIso = `${form.scheduledDate}T${form.scheduledTime}:00`
+      const localDate = new Date(localIso)
+      const scheduledAt = localDate.toISOString() // UTC ISO string
+
       await bookingsApi.createBooking({
         gig: gig._id,
         scheduledDate: form.scheduledDate,
         scheduledTime: form.scheduledTime,
+        scheduledAt,
+        timeZone: tz,
       })
       setSuccess("Booking request submitted!")
       setTimeout(() => router.replace("/dashboard-2"), 800)

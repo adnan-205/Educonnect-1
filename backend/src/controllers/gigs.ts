@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import Gig from '../models/Gig';
+import Payment from '../models/Payment';
 
 // Get all gigs
 export const getGigs = async (req: Request, res: Response) => {
@@ -28,9 +29,18 @@ export const getGig = async (req: Request, res: Response) => {
         message: 'Gig not found',
       });
     }
+    // Derive payment status for current student if authenticated
+    let isPaid = false;
+    if (req.user && req.user.role === 'student') {
+      const payment = await Payment.findOne({ gigId: gig._id, studentId: req.user._id, status: 'SUCCESS' }).select('_id');
+      isPaid = !!payment;
+    }
     res.json({
       success: true,
-      data: gig,
+      data: {
+        ...gig.toObject(),
+        isPaid,
+      },
     });
   } catch (err) {
     res.status(500).json({

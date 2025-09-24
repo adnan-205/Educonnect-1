@@ -50,6 +50,38 @@ export const usersApi = {
   },
 };
 
+export const paymentsApi = {
+  initPayment: async (gigId: string) => {
+    try {
+      const response = await api.post('/payments/init', { gigId });
+      return response.data; // { success, url, tran_id }
+    } catch (error) {
+      console.error('Error initializing payment:', error);
+      throw error;
+    }
+  },
+
+  getStatus: async (gigId: string) => {
+    try {
+      const response = await api.get(`/payments/status/${encodeURIComponent(gigId)}`);
+      return response.data; // { success, paid }
+    } catch (error) {
+      console.error('Error checking payment status:', error);
+      throw error;
+    }
+  },
+
+  getBookingStatus: async (bookingId: string) => {
+    try {
+      const response = await api.get(`/payments/booking-status/${encodeURIComponent(bookingId)}`);
+      return response.data; // { success, paid }
+    } catch (error) {
+      console.error('Error checking booking payment status:', error);
+      throw error;
+    }
+  },
+};
+
 export const uploadsApi = {
   uploadImage: async (file: File, folder?: string) => {
     try {

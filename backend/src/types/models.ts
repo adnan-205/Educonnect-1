@@ -99,6 +99,12 @@ export interface IBooking {
   status: 'pending' | 'accepted' | 'rejected' | 'completed';
   scheduledDate: Date;
   scheduledTime: string;
+  // Canonical UTC datetime and user's timezone
+  scheduledAt?: Date;
+  timeZone?: string;
+  // Meeting fields
+  meetingLink?: string;
+  meetingRoomId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
