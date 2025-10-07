@@ -49,10 +49,7 @@ export interface IUser {
   name: string;
   email: string;
   password: string;
-  role: 'student' | 'teacher' | 'admin';
-  // Onboarding
-  isOnboarded?: boolean;
-  marketingSource?: string;
+  role: 'student' | 'teacher';
   // Optional contact and presentation
   phone?: string;
   location?: string;
@@ -87,6 +84,7 @@ export interface IGig {
   category: string;
   duration: number;
   thumbnailUrl?: string;
+  thumbnailPublicId?: string;
   availability: {
     days: string[];
     times: string[];
@@ -102,8 +100,15 @@ export interface IBooking {
   status: 'pending' | 'accepted' | 'rejected' | 'completed';
   scheduledDate: Date;
   scheduledTime: string;
+  // Canonical UTC datetime and user's timezone
+  scheduledAt?: Date;
+  timeZone?: string;
+  // Meeting fields
   meetingLink?: string;
   meetingRoomId?: string;
+  // Attendance tracking
+  attended?: boolean;
+  attendedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

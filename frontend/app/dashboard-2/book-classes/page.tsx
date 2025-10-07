@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { gigsApi } from "@/services/api"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
     Search,
@@ -226,7 +227,7 @@ export default function BookClassesPage() {
                                 {/* Teacher Info */}
                                 <div className="flex items-center gap-3">
                                     <Avatar className="h-8 w-8">
-                                        <AvatarImage src={gig.teacher.profileImage} />
+                                        <AvatarImage src={gig.teacher.avatar || gig.teacher.profileImage} />
                                         <AvatarFallback className="text-xs">
                                             {gig.teacher.name.split(' ').map(n => n[0]).join('')}
                                         </AvatarFallback>
@@ -234,6 +235,11 @@ export default function BookClassesPage() {
                                     <div>
                                         <p className="font-medium text-sm">{gig.teacher.name}</p>
                                         <p className="text-xs text-gray-500">Expert Teacher</p>
+                                        <div className="mt-1">
+                                            <Link href={`/teacher/${gig.teacher._id}/profile`} className="text-xs text-blue-600 hover:underline">
+                                                View Full Profile
+                                            </Link>
+                                        </div>
                                     </div>
                                 </div>
 

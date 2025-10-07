@@ -21,7 +21,12 @@ import {
   Share2,
 } from "lucide-react"
 
-export default function ClassPage({ params }: { params: { id: string } }) {
+// Add proper type for page params
+export interface ClassPageParams {
+  id: string;
+}
+
+export default function ClassPage({ params }: { params: ClassPageParams }) {
   const [isVideoOn, setIsVideoOn] = useState(true)
   const [isAudioOn, setIsAudioOn] = useState(true)
   const [message, setMessage] = useState("")

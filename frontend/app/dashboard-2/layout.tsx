@@ -26,44 +26,72 @@ export default function DashboardLayout({
     const router = useRouter()
     const pathname = usePathname()
     const { isLoaded, isSignedIn, user } = useUser()
+    const [displayName, setDisplayName] = useState<string>("")
+    const [avatarUrl, setAvatarUrl] = useState<string>("")
 
-    // Auth + role + onboarding guard
+    // Auth + role guard: must be signed in and have a role set
     useEffect(() => {
         if (!isLoaded) return
-        if (!isSignedIn) {
+        // Allow embedded video call route without sign-in to avoid loops
+        const isVideoCallRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard-2/video-call/")
+        if (!isSignedIn && !isVideoCallRoute) {
             router.replace("/sign-in")
             return
         }
+        // Allow joining embedded video call even if role not yet set
         const role = typeof window !== "undefined" ? localStorage.getItem("role") : null
-        if (!role) {
+        if (!role && !isVideoCallRoute) {
             router.replace("/role-selection")
             return
         }
-        try {
-            const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null
-            const u = userStr ? JSON.parse(userStr) : null
-            if (!u?.isOnboarded) {
-                router.replace('/onboarding')
-                return
-            }
-        } catch {}
     }, [isLoaded, isSignedIn, router])
 
     // Get user type from localStorage
     useEffect(() => {
         if (typeof window !== "undefined") {
-            const role = localStorage.getItem("role") as "student" | "teacher" | "admin" | null
+            const role = localStorage.getItem("role") as "student" | "teacher" | null
             setUserType(role)
 
             // Listen for storage changes (e.g., login/logout in another tab)
             const handleStorage = () => {
-                const newRole = localStorage.getItem("role") as "student" | "teacher" | "admin" | null
+                const newRole = localStorage.getItem("role") as "student" | "teacher" | null
                 setUserType(newRole)
             }
             window.addEventListener("storage", handleStorage)
             return () => window.removeEventListener("storage", handleStorage)
         }
     }, [])
+
+    // Load displayName and avatar from backend user (localStorage) with Clerk fallback
+    useEffect(() => {
+        try {
+            const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null
+            if (raw) {
+                const u = JSON.parse(raw)
+                if (u?.name) setDisplayName(u.name)
+                if (u?.avatar) setAvatarUrl(u.avatar)
+            }
+        } catch {}
+        if (isLoaded && isSignedIn) {
+            if (!displayName) setDisplayName(user?.fullName || user?.username || user?.firstName || 'User')
+            if (!avatarUrl) setAvatarUrl((user?.imageUrl as string) || '')
+        }
+        const onStorage = (e: StorageEvent) => {
+            if (e.key === 'user' && e.newValue) {
+                try {
+                    const u = JSON.parse(e.newValue)
+                    if (u?.name) setDisplayName(u.name)
+                    if (u?.avatar) setAvatarUrl(u.avatar)
+                } catch {}
+            }
+        }
+        if (typeof window !== 'undefined') {
+            window.addEventListener('storage', onStorage)
+            return () => window.removeEventListener('storage', onStorage)
+        }
+    }, [isLoaded, isSignedIn, user])
+
+    const initials = (name: string) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'
 
     const navigationItems = userType === "teacher" ? [
         { id: "home", label: "Dashboard", icon: Home, href: "/dashboard-2" },
@@ -90,7 +118,15 @@ export default function DashboardLayout({
         { id: "settings", label: "Settings", icon: Settings, href: "/dashboard-2/settings" }
     ]
 
-    // Show loading state while determining user type
+    // Render minimal layout for embedded video-call route (avoid nav and role checks UI)
+    const isVideoCallRoute = pathname?.startsWith('/dashboard-2/video-call/')
+    if (isVideoCallRoute) {
+        return (
+            <div className="min-h-screen bg-gray-50">{children}</div>
+        )
+    }
+
+    // Show loading state while determining user type for regular dashboard routes
     if (userType === null) {
         return (
             <div className="flex h-screen bg-gray-50 items-center justify-center">
@@ -109,16 +145,11 @@ export default function DashboardLayout({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                         <Avatar className="h-10 w-10">
-                            <AvatarImage src={user?.imageUrl || "/placeholder.jpg"} />
-                            <AvatarFallback className="text-sm font-semibold">
-                                {user?.firstName?.[0] || 'U'}
-                                {user?.lastName?.[0] || 'U'}
-                            </AvatarFallback>
+                            <AvatarImage src={avatarUrl} />
+                            <AvatarFallback className="text-sm font-semibold">{initials(displayName)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <h2 className="text-lg font-semibold text-gray-900">
-                                {user?.fullName || 'Unnamed User'}
-                            </h2>
+                            <h2 className="text-lg font-semibold text-gray-900">{displayName}</h2>
                             <p className="text-sm text-gray-500 capitalize">{userType}</p>
                         </div>
                     </div>
@@ -168,14 +199,11 @@ export default function DashboardLayout({
                             className="group transition-transform hover:scale-105"
                         >
                             <Avatar className="h-16 w-16 mx-auto mb-3 group-hover:ring-2 group-hover:ring-blue-300 transition-all">
-                                <AvatarImage src={user?.imageUrl || "/placeholder.jpg"} />
-                                <AvatarFallback className="text-lg font-semibold">
-                                    {user?.firstName?.[0] || 'U'}
-                                    {user?.lastName?.[0] || 'U'}
-                                </AvatarFallback>
+                                <AvatarImage src={avatarUrl} />
+                                <AvatarFallback className="text-lg font-semibold">{initials(displayName)}</AvatarFallback>
                             </Avatar>
                             <h2 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                {user?.fullName || 'Unnamed User'}
+                                {displayName}
                             </h2>
                             <p className="text-sm text-gray-500 capitalize">{userType}</p>
                         </Link>

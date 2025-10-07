@@ -9,6 +9,7 @@ import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 
 export function Navbar() {
     const [isOpen, setIsOpen] = useState(false)
+    
 
 
     return (

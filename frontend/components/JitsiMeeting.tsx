@@ -1,34 +1,16 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  PhoneOff, 
-  Settings,
-  Users,
-  MessageSquare,
-  Share2,
-  Maximize,
-  X
-} from 'lucide-react';
+import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
-interface JitsiMeetingProps {
+export interface JitsiMeetingProps {
   roomId: string;
-  displayName: string;
+  displayName?: string;
   userEmail?: string;
-  onMeetingEnd?: () => void;
+  endAfterMinutes?: number; // auto-end after N minutes from join; default 90
   onMeetingJoined?: () => void;
+  onMeetingEnd?: () => void; // fires after hangup/close
   className?: string;
-  gigTitle?: string;
-  teacherName?: string;
-  studentName?: string;
-  scheduledTime?: string;
 }
 
 declare global {
@@ -41,328 +23,145 @@ export default function JitsiMeeting({
   roomId,
   displayName,
   userEmail,
-  onMeetingEnd,
+  endAfterMinutes = 90,
   onMeetingJoined,
-  className = '',
-  gigTitle,
-  teacherName,
-  studentName,
-  scheduledTime
+  onMeetingEnd,
+  className = "",
 }: JitsiMeetingProps) {
-  const jitsiContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [api, setApi] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isJoined, setIsJoined] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [participants, setParticipants] = useState(0);
-  const [isVideoOn, setIsVideoOn] = useState(true);
-  const [isAudioOn, setIsAudioOn] = useState(true);
+  const endTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const joinedRef = useRef<boolean>(false);
+  const router = useRouter();
 
   useEffect(() => {
-    // Load Jitsi Meet External API script
-    const loadJitsiScript = () => {
-      return new Promise((resolve, reject) => {
-        if (window.JitsiMeetExternalAPI) {
-          resolve(window.JitsiMeetExternalAPI);
-          return;
-        }
+    const domain = process.env.NEXT_PUBLIC_JITSI_DOMAIN || "meet.jit.si";
+    const isLocal =
+      domain === "localhost" ||
+      domain === "127.0.0.1" ||
+      domain.startsWith("192.168.") ||
+      domain.startsWith("10.");
+    const scheme = isLocal ? "http" : "https";
 
-        const script = document.createElement('script');
-        script.src = 'http://localhost/external_api.js'; // Use your Jitsi domain
+    const loadScript = () =>
+      new Promise<void>((resolve, reject) => {
+        if ((window as any).JitsiMeetExternalAPI) return resolve();
+        const script = document.createElement("script");
+        script.src = `${scheme}://${domain}/external_api.js`;
         script.async = true;
-        script.onload = () => resolve(window.JitsiMeetExternalAPI);
-        script.onerror = () => reject(new Error('Failed to load Jitsi Meet API'));
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Failed to load Jitsi API"));
         document.head.appendChild(script);
       });
-    };
 
-    const initializeJitsi = async () => {
+    const init = async () => {
       try {
         setIsLoading(true);
         setError(null);
+        await loadScript();
+        if (!containerRef.current) throw new Error("Container not found");
 
-        await loadJitsiScript();
-
-        if (!jitsiContainerRef.current) {
-          throw new Error('Jitsi container not found');
-        }
-
-        const domain = 'localhost'; // Use your Jitsi domain
-        const options = {
+        const options: any = {
           roomName: roomId,
-          width: '100%',
-          height: 500,
-          parentNode: jitsiContainerRef.current,
+          parentNode: containerRef.current,
+          width: "100%",
+          height: 650,
           userInfo: {
-            displayName: displayName,
-            email: userEmail || '',
+            displayName: displayName || "",
+            email: userEmail || "",
           },
           configOverwrite: {
+            prejoinPageEnabled: false, // legacy key still honored in many builds
+            prejoinConfig: { enabled: false },
+            requireDisplayName: false,
+            disableDeepLinking: true,
+            enableWelcomePage: false,
             startWithAudioMuted: false,
             startWithVideoMuted: false,
-            enableWelcomePage: false,
-            enableUserRolesBasedOnToken: false,
-            enableEmailInStats: false,
-            requireDisplayName: true,
-            disableThirdPartyRequests: true,
-            enableNoAudioDetection: true,
-            enableNoisyMicDetection: true,
-            toolbarButtons: [
-              'microphone',
-              'camera',
-              'closedcaptions',
-              'desktop',
-              'fullscreen',
-              'fodeviceselection',
-              'hangup',
-              'profile',
-              'chat',
-              'recording',
-              'livestreaming',
-              'etherpad',
-              'sharedvideo',
-              'settings',
-              'raisehand',
-              'videoquality',
-              'filmstrip',
-              'invite',
-              'feedback',
-              'stats',
-              'shortcuts',
-              'tileview',
-              'videobackgroundblur',
-              'download',
-              'help',
-              'mute-everyone',
-              'security'
-            ],
           },
           interfaceConfigOverwrite: {
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false,
-            SHOW_BRAND_WATERMARK: false,
-            BRAND_WATERMARK_LINK: '',
-            SHOW_POWERED_BY: false,
             DISPLAY_WELCOME_PAGE_CONTENT: false,
             DISPLAY_WELCOME_PAGE_TOOLBAR_ADDITIONAL_CONTENT: false,
-            APP_NAME: 'EduConnect Class',
-            NATIVE_APP_NAME: 'EduConnect',
-            PROVIDER_NAME: 'EduConnect',
-            LANG_DETECTION: true,
-            CONNECTION_INDICATOR_AUTO_HIDE_ENABLED: true,
-            CONNECTION_INDICATOR_AUTO_HIDE_TIMEOUT: 5000,
-            MAXIMUM_ZOOMING_COEFFICIENT: 1.3,
-            FILM_STRIP_MAX_HEIGHT: 120,
-            ENABLE_FEEDBACK_ANIMATION: false,
-            DISABLE_VIDEO_BACKGROUND: false,
-            HIDE_INVITE_MORE_HEADER: false,
-            RECENT_LIST_ENABLED: false,
-            OPTIMAL_BROWSERS: ['chrome', 'chromium', 'firefox', 'nwjs', 'electron', 'safari'],
+            SHOW_BRAND_WATERMARK: false,
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
           },
         };
 
-        const jitsiApi = new window.JitsiMeetExternalAPI(domain, options);
-        setApi(jitsiApi);
+        const apiInstance = new (window as any).JitsiMeetExternalAPI(domain, options);
+        setApi(apiInstance);
 
-        // Event listeners
-        jitsiApi.addEventListener('videoConferenceJoined', () => {
-          setIsJoined(true);
+        apiInstance.addEventListener("videoConferenceJoined", () => {
           setIsLoading(false);
+          joinedRef.current = true;
           onMeetingJoined?.();
+          // Auto-end after N minutes from actual join
+          const ms = Math.max(1, endAfterMinutes) * 60 * 1000;
+          endTimerRef.current = setTimeout(() => {
+            try {
+              apiInstance.executeCommand("hangup");
+            } catch (_) {
+              // ignore
+            }
+          }, ms);
         });
 
-        jitsiApi.addEventListener('videoConferenceLeft', () => {
-          setIsJoined(false);
+        const handleClose = () => {
+          // Avoid redirect loops if the conference never actually started
+          if (!joinedRef.current) {
+            return;
+          }
+          if (endTimerRef.current) {
+            clearTimeout(endTimerRef.current);
+            endTimerRef.current = null;
+          }
           onMeetingEnd?.();
-        });
+          // Also navigate back to dashboard as a convenience
+          try {
+            router.push("/dashboard-2");
+          } catch (_) {
+            // ignore navigation errors
+          }
+        };
 
-        jitsiApi.addEventListener('participantJoined', () => {
-          setParticipants(prev => prev + 1);
-        });
-
-        jitsiApi.addEventListener('participantLeft', () => {
-          setParticipants(prev => Math.max(0, prev - 1));
-        });
-
-        jitsiApi.addEventListener('audioMuteStatusChanged', (event: any) => {
-          setIsAudioOn(!event.muted);
-        });
-
-        jitsiApi.addEventListener('videoMuteStatusChanged', (event: any) => {
-          setIsVideoOn(!event.muted);
-        });
-
-        jitsiApi.addEventListener('readyToClose', () => {
-          onMeetingEnd?.();
-        });
-
-        // Handle errors
-        jitsiApi.addEventListener('connectionFailed', () => {
-          setError('Failed to connect to the meeting. Please check your internet connection.');
-          setIsLoading(false);
-        });
-
-      } catch (err) {
-        console.error('Error initializing Jitsi:', err);
-        setError('Failed to initialize video meeting. Please try again.');
+        apiInstance.addEventListener("videoConferenceLeft", handleClose);
+        apiInstance.addEventListener("readyToClose", handleClose);
+      } catch (e: any) {
+        setError(e?.message || "Failed to start meeting");
+      } finally {
         setIsLoading(false);
       }
     };
 
-    initializeJitsi();
+    init();
 
-    // Cleanup
     return () => {
-      if (api) {
-        api.dispose();
-      }
+      if (endTimerRef.current) clearTimeout(endTimerRef.current);
+      try {
+        api?.dispose?.();
+      } catch (_) {}
     };
-  }, [roomId, displayName, userEmail]);
-
-  const handleEndMeeting = () => {
-    if (api) {
-      api.executeCommand('hangup');
-    }
-  };
-
-  const toggleAudio = () => {
-    if (api) {
-      api.executeCommand('toggleAudio');
-    }
-  };
-
-  const toggleVideo = () => {
-    if (api) {
-      api.executeCommand('toggleVideo');
-    }
-  };
-
-  const toggleChat = () => {
-    if (api) {
-      api.executeCommand('toggleChat');
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
 
   if (error) {
     return (
-      <Card className={`w-full ${className}`}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-red-600">
-            <X className="h-5 w-5" />
-            Meeting Error
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <p className="text-red-600 mb-4">{error}</p>
-            <Button 
-              onClick={() => window.location.reload()} 
-              variant="outline"
-            >
-              Retry
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="p-4 text-red-600 bg-red-50 rounded-lg">
+        {error}
+      </div>
     );
   }
 
   return (
-    <div className={`w-full ${className}`}>
-      {/* Meeting Info Header */}
-      <Card className="mb-4">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">{gigTitle || 'EduConnect Class'}</CardTitle>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                {teacherName && (
-                  <span>Teacher: <strong>{teacherName}</strong></span>
-                )}
-                {studentName && (
-                  <span>Student: <strong>{studentName}</strong></span>
-                )}
-                {scheduledTime && (
-                  <span>Time: <strong>{scheduledTime}</strong></span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {participants + 1} participant{participants !== 0 ? 's' : ''}
-              </Badge>
-              {isJoined && (
-                <Badge className="bg-green-100 text-green-800">
-                  Connected
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Jitsi Meeting Container */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading && (
-            <div className="flex items-center justify-center h-96 bg-gray-50">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Connecting to meeting...</p>
-              </div>
-            </div>
-          )}
-          
-          <div 
-            ref={jitsiContainerRef} 
-            className={`w-full ${isLoading ? 'hidden' : 'block'}`}
-            style={{ minHeight: '500px' }}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Meeting Controls (Optional - Jitsi has its own controls) */}
-      {isJoined && (
-        <Card className="mt-4">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                variant={isAudioOn ? "default" : "destructive"}
-                size="sm"
-                onClick={toggleAudio}
-              >
-                {isAudioOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-              </Button>
-              
-              <Button
-                variant={isVideoOn ? "default" : "destructive"}
-                size="sm"
-                onClick={toggleVideo}
-              >
-                {isVideoOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleChat}
-              >
-                <MessageSquare className="h-4 w-4" />
-              </Button>
-              
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleEndMeeting}
-              >
-                <PhoneOff className="h-4 w-4" />
-                End Meeting
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+    <div className={className}>
+      {isLoading && (
+        <div className="flex items-center justify-center py-8 text-gray-600">
+          Initializing meeting...
+        </div>
       )}
+      <div data-testid="jitsi-container" ref={containerRef} className="w-full rounded-lg overflow-hidden border border-gray-200" />
     </div>
   );
 }

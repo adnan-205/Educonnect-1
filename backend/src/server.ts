@@ -5,7 +5,6 @@ import cors, { CorsOptions } from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
-import mongoSanitize from 'express-mongo-sanitize';
 import { errorHandler } from './middleware/error';
 import { requestLogger } from './middleware/logger';
 import authRoutes from './routes/auth';
@@ -14,6 +13,7 @@ import bookingRoutes from './routes/bookings';
 import userRoutes from './routes/users';
 import uploadRoutes from './routes/uploads';
 import healthRoutes from './routes/health';
+import paymentRoutes from './routes/payments';
 
 // Load env vars
 dotenv.config();
@@ -39,14 +39,7 @@ app.use(express.urlencoded({ limit: maxFileSize, extended: true }));
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
+  contentSecurityPolicy: false, // Disable CSP for now to avoid conflicts
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,
@@ -54,13 +47,30 @@ app.use(helmet({
   }
 }));
 
-// NoSQL injection protection
-// app.use(mongoSanitize());
-// NOTE: Disabled temporarily due to Express 5's read-only req.query property,
-// which causes "Cannot set property query ... which has only a getter" when
-// middlewares try to reassign req.query. Consider upgrading express-mongo-sanitize
-// for Express 5 compatibility or implementing a custom sanitizer that mutates
-// objects without reassigning req.query.
+// NoSQL injection protection (Express 5 compatible)
+// express-mongo-sanitize attempts to reassign req.query which is readonly in Express 5.
+// We implement a safe in-place sanitizer instead.
+const removeUnsafeKeys = (obj: any) => {
+  if (!obj || typeof obj !== 'object') return;
+  for (const key of Object.keys(obj)) {
+    if (key.startsWith('$') || key.includes('.')) {
+      delete (obj as any)[key];
+      continue;
+    }
+    const val = (obj as any)[key];
+    if (val && typeof val === 'object') removeUnsafeKeys(val);
+  }
+};
+app.use((req, _res, next) => {
+  try {
+    if (req.body && typeof req.body === 'object') removeUnsafeKeys(req.body);
+    if (req.query && typeof req.query === 'object') removeUnsafeKeys(req.query as any);
+    if (req.params && typeof req.params === 'object') removeUnsafeKeys(req.params as any);
+  } catch {
+    // ignore sanitize errors
+  }
+  next();
+});
 // Robust CORS config for local dev and configurable origins
 const corsEnv = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '';
 const allowedOriginsFromEnv = corsEnv
@@ -73,23 +83,32 @@ const devOriginRegex = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.[0-9]{1,3}\.
 
 // Render.com specific patterns
 const renderOriginRegex = /^https:\/\/.*\.onrender\.com$/;
+// SSLCommerz origins (sandbox and live)
+const sslcommerzOriginRegex = /^https:\/\/(sandbox|securepay)\.sslcommerz\.com$/;
 
 const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     // Allow same-origin or non-browser requests (no origin)
     if (!origin) return callback(null, true);
-    
+
+    // Some providers (payment redirects/form posts, file://) use literal 'null' origin.
+    // Allow it to enable gateway callbacks like SSLCommerz success/fail/cancel.
+    if (origin === 'null') return callback(null, true);
+
     // Allow configured origins
     if (allowedOriginsFromEnv.includes(origin)) return callback(null, true);
-    
+
     // Allow development origins
     if (process.env.NODE_ENV === 'development' && devOriginRegex.test(origin)) {
       return callback(null, true);
     }
-    
+
     // Allow Render.com subdomains
     if (renderOriginRegex.test(origin)) return callback(null, true);
-    
+
+    // Allow SSLCommerz gateways to POST callbacks
+    if (sslcommerzOriginRegex.test(origin)) return callback(null, true);
+
     return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
@@ -97,12 +116,11 @@ const corsOptions: CorsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
 };
 app.use(cors(corsOptions));
-// Enable CORS preflight for all routes
-app.options(/.*/, cors(corsOptions));
 
 // Enhanced rate limiting with configurable options
+const isDev = process.env.NODE_ENV === 'development';
 const rateLimitWindow = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'); // 15 minutes default
-const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100');
+const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (isDev ? '1000' : '100'));
 
 const limiter = rateLimit({
   windowMs: rateLimitWindow,
@@ -114,6 +132,8 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
+    // In development, skip rate limiting entirely to avoid disrupting local testing
+    if (isDev) return true;
     // Skip rate limiting for health checks
     return req.path === '/health' || req.path === '/api/health';
   }
@@ -141,6 +161,14 @@ app.get('/', (req, res) => {
         getBooking: 'GET /api/bookings/:id',
         createBooking: 'POST /api/bookings',
         updateBookingStatus: 'PUT /api/bookings/:id'
+      },
+      payments: {
+        init: 'POST /api/payments/init',
+        status: 'GET /api/payments/status/:gigId',
+        success: 'POST /api/payments/success/:tran_id',
+        fail: 'POST /api/payments/fail/:tran_id',
+        cancel: 'POST /api/payments/cancel/:tran_id',
+        ipn: 'POST /api/payments/ipn'
       }
     }
   });
@@ -156,6 +184,7 @@ app.use('/api/gigs', gigRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Add error logging
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -198,16 +227,14 @@ const connectDB = async () => {
     
   } catch (error) {
     console.error('MongoDB connection failed:', error);
-    // Do not exit the process to allow the API server to start and respond
-    // to health checks and other requests. Many routes will still fail until
-    // the database is reachable, but this avoids opaque network errors in the UI.
+    process.exit(1);
   }
 };
 
 connectDB();
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(process.env.PORT || '5000', 10);
 const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
 app.listen(PORT, HOST, () => {

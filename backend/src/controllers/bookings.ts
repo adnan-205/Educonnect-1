@@ -1,40 +1,85 @@
 import { Request, Response } from 'express';
 import Booking from '../models/Booking';
 import Gig from '../models/Gig';
+import Payment from '../models/Payment';
+
+// Helper to generate a deterministic Jitsi room ID
+const generateMeetingRoomId = (bookingId: string, gigTitle: string): string => {
+  const sanitizedTitle = gigTitle.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  const shortBookingId = bookingId.substring(0, 8);
+  return `educonnect-${sanitizedTitle}-${shortBookingId}`;
+};
+
+// Mark student attendance for a booking
+export const markAttendance = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    // Only the student who owns this booking can mark attendance
+    if (booking.student.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    // Only accepted bookings can be attended
+    if (booking.status !== 'accepted') {
+      return res.status(400).json({ success: false, message: 'Cannot mark attendance for non-accepted booking' });
+    }
+    
+    // Mark attendance
+    (booking as any).attended = true;
+    (booking as any).attendedAt = new Date();
+    await booking.save();
+
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to mark attendance' });
+  }
+};
+
+  // Helper to generate a meeting link from room ID
+  const generateMeetingLink = (roomId: string): string => {
+    // Always use meet.jit.si over HTTPS to ensure no login/prelogin prompts from self-hosted instances
+    const hash = [
+      'config.prejoinPageEnabled=false',
+      'config.disableDeepLinking=true',
+      'config.enableWelcomePage=false'
+      // interfaceConfig options can also be added if desired, e.g. hiding watermarks
+    ].join('&');
+    return `https://meet.jit.si/${roomId}#${hash}`;
+  };
 
 // Get all bookings
 export const getBookings = async (req: Request, res: Response) => {
   try {
-    let query;
-    const { status } = req.query;
+    // Build a safe filter object
+    const filter: any = {};
 
-    // If user is student, get only their bookings
-    if (req.user.role === 'student') {
-      query = Booking.find({ student: req.user._id });
-    }
-    // If user is teacher, get bookings for their gigs
-    else if (req.user.role === 'teacher') {
+    if (req.user?.role === 'student') {
+      filter.student = req.user._id;
+    } else if (req.user?.role === 'teacher') {
       const gigs = await Gig.find({ teacher: req.user._id });
-      const gigIds = gigs.map(gig => gig._id);
-      query = Booking.find({ gig: { $in: gigIds } });
+      const gigIds = gigs.map(g => g._id);
+      filter.gig = { $in: gigIds };
     }
 
-    // Filter by status if provided
-    if (status && typeof status === 'string') {
-      query = query.where('status').equals(status);
+    // Optional status filter (?status=pending|accepted|rejected|completed)
+    const status = (req.query?.status as string | undefined)?.toLowerCase();
+    const allowedStatuses = new Set(['pending', 'accepted', 'rejected', 'completed']);
+    if (status && allowedStatuses.has(status)) {
+      filter.status = status;
     }
 
-    const bookings = await query
+    const bookings = await Booking.find(filter)
       .populate({
         path: 'gig',
-        select: 'title price duration',
-        populate: {
-          path: 'teacher',
-          select: 'name email',
-        },
+        select: 'title price duration category thumbnailUrl',
+        populate: { path: 'teacher', select: 'name email avatar' },
       })
       .populate('student', 'name email')
-      .sort({ createdAt: -1 }); // Sort by newest first
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
@@ -55,10 +100,10 @@ export const getBooking = async (req: Request, res: Response) => {
     const booking = await Booking.findById(req.params.id)
       .populate({
         path: 'gig',
-        select: 'title price duration',
+        select: 'title price duration category thumbnailUrl',
         populate: {
           path: 'teacher',
-          select: 'name email',
+          select: 'name email avatar',
         },
       })
       .populate('student', 'name email');
@@ -82,10 +127,82 @@ export const getBooking = async (req: Request, res: Response) => {
   }
 };
 
+// Get single booking by room
+export const getBookingByRoom = async (req: Request, res: Response) => {
+  try {
+    const { roomId } = req.params as { roomId: string };
+
+    const booking = await Booking.findOne({ meetingRoomId: roomId })
+      .populate({
+        path: 'gig',
+        select: 'title price duration category thumbnailUrl teacher',
+        populate: { path: 'teacher', select: 'name email avatar' },
+      })
+      .populate('student', 'name email');
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Meeting not found' });
+    }
+
+    // Normalize IDs to support both populated and unpopulated refs
+    const studentId = (booking as any).student && typeof (booking as any).student === 'object' && (booking as any).student._id
+      ? (booking as any).student._id
+      : (booking as any).student;
+    const teacherId = (booking as any).gig && (booking as any).gig.teacher && typeof (booking as any).gig.teacher === 'object' && (booking as any).gig.teacher._id
+      ? (booking as any).gig.teacher._id
+      : (booking as any).gig.teacher;
+
+    const isStudent = studentId?.toString?.() === req.user._id.toString();
+    const isTeacher = teacherId?.toString?.() === req.user._id.toString();
+
+    if (!isStudent && !isTeacher) {
+      return res.status(403).json({ success: false, message: 'Access denied for this meeting' });
+    }
+
+    // Must be accepted to join (for both student and teacher)
+    if ((booking as any).status !== 'accepted') {
+      return res.status(403).json({ success: false, message: 'Booking is not accepted yet' });
+    }
+
+    // Enforce join window timing: opens 2 minutes before start, closes after duration
+    const scheduled = (booking as any).scheduledAt || (booking as any).scheduledDate;
+    const startTs = new Date(scheduled).getTime();
+    if (!startTs || isNaN(startTs)) {
+      return res.status(400).json({ success: false, message: 'Invalid scheduled date/time for this booking' });
+    }
+    const durationMin = (booking as any).gig?.duration || 90;
+    const windowOpen = startTs - 2 * 60 * 1000;
+    const endTs = startTs + durationMin * 60 * 1000;
+    const now = Date.now();
+    if (now < windowOpen) {
+      return res.status(403).json({ success: false, message: 'Join window not open yet' });
+    }
+    if (now > endTs) {
+      return res.status(403).json({ success: false, message: 'Class has ended' });
+    }
+
+    // Enforce per-booking payment for students before joining
+    if (isStudent) {
+      const paid = await Payment.findOne({ bookingId: (booking as any)._id, studentId: req.user._id, status: 'SUCCESS' }).select('_id');
+      if (!paid) {
+        return res.status(402).json({ success: false, message: 'Payment required to join this class' });
+      }
+    }
+
+    return res.json({ success: true, data: booking });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Error validating meeting access' });
+  }
+};
+
 // Create booking
 export const createBooking = async (req: Request, res: Response) => {
   try {
     req.body.student = req.user._id;
+    // Support either `gig` or `gigId` from request
+    if (!req.body.gig && req.body.gigId) {
+      req.body.gig = req.body.gigId;
+    }
     const gig = await Gig.findById(req.body.gig);
 
     if (!gig) {
@@ -93,6 +210,33 @@ export const createBooking = async (req: Request, res: Response) => {
         success: false,
         message: 'Gig not found',
       });
+    }
+
+    // Compute canonical UTC scheduledAt and capture student's timezone
+    const { scheduledDate, scheduledTime, scheduledAt, timeZone } = req.body as any;
+
+    let computedScheduledAt: Date | undefined;
+    if (scheduledAt) {
+      // Client provided canonical UTC
+      const d = new Date(scheduledAt);
+      if (!isNaN(d.getTime())) {
+        computedScheduledAt = d;
+      }
+    }
+    if (!computedScheduledAt && scheduledDate && scheduledTime) {
+      // Fallback: construct from provided local date/time (assumed client local)
+      // Note: for perfect timezone handling, prefer sending scheduledAt from client.
+      const fallback = new Date(`${scheduledDate}T${scheduledTime}:00`);
+      if (!isNaN(fallback.getTime())) {
+        computedScheduledAt = fallback;
+      }
+    }
+
+    if (computedScheduledAt) {
+      req.body.scheduledAt = computedScheduledAt;
+    }
+    if (timeZone) {
+      req.body.timeZone = timeZone;
     }
 
     const booking = await Booking.create(req.body);
@@ -109,25 +253,10 @@ export const createBooking = async (req: Request, res: Response) => {
   }
 };
 
-// Helper function to generate Jitsi meeting room ID
-const generateMeetingRoomId = (bookingId: string, gigTitle: string): string => {
-  // Create a unique room ID based on booking ID and gig title
-  const sanitizedTitle = gigTitle.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  const shortBookingId = bookingId.substring(0, 8);
-  return `educonnect-${sanitizedTitle}-${shortBookingId}`;
-};
-
-// Helper function to generate Jitsi meeting link
-const generateMeetingLink = (roomId: string): string => {
-  // Use localhost for local development, change to your production domain
-  const jitsiDomain = process.env.JITSI_DOMAIN || 'localhost';
-  return `http://${jitsiDomain}/${roomId}`;
-};
-
 // Update booking status
 export const updateBookingStatus = async (req: Request, res: Response) => {
   try {
-    const booking = await Booking.findById(req.params.id).populate('gig');
+    const booking = await Booking.findById(req.params.id);
 
     if (!booking) {
       return res.status(404).json({
@@ -136,7 +265,7 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
       });
     }
 
-    const gig = booking.gig as any;
+    const gig = await Gig.findById(booking.gig);
 
     // Check if the user is the teacher of this gig
     if (gig?.teacher.toString() !== req.user._id.toString()) {
@@ -148,70 +277,33 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
 
     booking.status = req.body.status;
 
-    // If booking is being accepted, generate Jitsi meeting link
+    // If accepting and no meeting link yet, generate it
     if (req.body.status === 'accepted' && !booking.meetingLink) {
-      const roomId = generateMeetingRoomId(booking._id.toString(), gig.title);
+      const roomId = generateMeetingRoomId(booking._id.toString(), gig?.title || 'class');
       const meetingLink = generateMeetingLink(roomId);
-      
-      booking.meetingRoomId = roomId;
-      booking.meetingLink = meetingLink;
+      (booking as any).meetingRoomId = roomId;
+      (booking as any).meetingLink = meetingLink;
     }
 
     await booking.save();
 
-    // Populate the booking with gig and student details for response
-    const populatedBooking = await Booking.findById(booking._id)
+    // Populate with gig teacher and student for client convenience
+    const populated = await Booking.findById(booking._id)
       .populate({
         path: 'gig',
-        select: 'title price duration',
-        populate: {
-          path: 'teacher',
-          select: 'name email',
-        },
+        select: 'title price duration category thumbnailUrl',
+        populate: { path: 'teacher', select: 'name email avatar' },
       })
       .populate('student', 'name email');
 
     res.json({
       success: true,
-      data: populatedBooking,
+      data: populated,
     });
   } catch (err) {
     res.status(500).json({
       success: false,
       message: 'Error updating booking status',
-    });
-  }
-};
-
-// Get teacher dashboard statistics
-export const getTeacherDashboardStats = async (req: Request, res: Response) => {
-  try {
-    // Get all gigs for the teacher
-    const gigs = await Gig.find({ teacher: req.user._id });
-    const gigIds = gigs.map(gig => gig._id);
-
-    // Get booking counts by status
-    const [pendingCount, acceptedCount, rejectedCount, completedCount] = await Promise.all([
-      Booking.countDocuments({ gig: { $in: gigIds }, status: 'pending' }),
-      Booking.countDocuments({ gig: { $in: gigIds }, status: 'accepted' }),
-      Booking.countDocuments({ gig: { $in: gigIds }, status: 'rejected' }),
-      Booking.countDocuments({ gig: { $in: gigIds }, status: 'completed' }),
-    ]);
-
-    res.json({
-      success: true,
-      data: {
-        pending: pendingCount,
-        accepted: acceptedCount,
-        rejected: rejectedCount,
-        completed: completedCount,
-        total: pendingCount + acceptedCount + rejectedCount + completedCount,
-      },
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching dashboard statistics',
     });
   }
 };

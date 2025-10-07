@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { usersApi } from "@/services/api"
 import { BookOpen, Star, Clock, Loader2, User } from "lucide-react"
+import { getGigThumb } from "@/lib/images"
 
 interface Teacher {
   _id: string
@@ -33,8 +34,8 @@ interface Gig {
   category: string
   price: number
   duration: number
-  thumbnailUrl?: string
   createdAt: string
+  thumbnailUrl?: string
 }
 
 export default function PublicTeacherProfilePage() {
@@ -100,20 +101,19 @@ export default function PublicTeacherProfilePage() {
                   <h1 className="text-2xl font-semibold text-gray-900">{teacher.name}</h1>
                   <p className="text-sm text-gray-500">{teacher.headline || 'Expert Teacher'}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Link href={`/teacher/${teacher._id}/profile`}>
-                    <Button variant="outline" size="sm">
-                      <User className="h-4 w-4 mr-2" />
-                      View Full Profile
-                    </Button>
-                  </Link>
-                  {teacher.profile?.hourlyRate && (
-                    <div className="text-right">
-                      <div className="text-sm text-gray-500">Starting at</div>
-                      <div className="text-xl font-bold text-green-600">${teacher.profile.hourlyRate}/hr</div>
-                    </div>
-                  )}
-                </div>
+                {teacher.profile?.hourlyRate && (
+                  <div className="text-right">
+                    <div className="text-sm text-gray-500">Starting at</div>
+                    <div className="text-xl font-bold text-green-600">${teacher.profile.hourlyRate}/hr</div>
+                  </div>
+                )}
+              </div>
+              <div className="mt-3">
+                <Link href={`/teacher/${params.id}/profile`}>
+                  <Button size="sm" variant="outline" className="gap-2">
+                    <User className="h-4 w-4" /> View Full Profile
+                  </Button>
+                </Link>
               </div>
               {teacher.profile?.subjects && teacher.profile.subjects.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-3">
@@ -146,16 +146,8 @@ export default function PublicTeacherProfilePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {gigs.map((gig) => (
               <Card key={gig._id} className="overflow-hidden hover:shadow-md transition-shadow">
-                <div className="aspect-video w-full bg-gradient-to-br from-primary/10 to-purple-500/10 grid place-items-center overflow-hidden">
-                  {gig.thumbnailUrl ? (
-                    <img
-                      src={gig.thumbnailUrl}
-                      alt={gig.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <BookOpen className="h-12 w-12 text-primary/50" />
-                  )}
+                <div className="aspect-video w-full overflow-hidden bg-muted">
+                  <img src={getGigThumb(gig.thumbnailUrl, 640, 360)} alt={`${gig.title} thumbnail`} className="w-full h-full object-cover" />
                 </div>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between">

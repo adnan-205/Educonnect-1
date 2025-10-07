@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -69,10 +70,19 @@ export default function BookGigPage() {
     setSuccess("")
     try {
       setSubmitting(true)
+      // Compute canonical UTC time for the scheduled class
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      // Build a local Date from the user's chosen date & time
+      const localIso = `${form.scheduledDate}T${form.scheduledTime}:00`
+      const localDate = new Date(localIso)
+      const scheduledAt = localDate.toISOString() // UTC ISO string
+
       await bookingsApi.createBooking({
         gig: gig._id,
         scheduledDate: form.scheduledDate,
         scheduledTime: form.scheduledTime,
+        scheduledAt,
+        timeZone: tz,
       })
       setSuccess("Booking request submitted!")
       setTimeout(() => router.replace("/dashboard-2"), 800)
@@ -119,6 +129,13 @@ export default function BookGigPage() {
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Clock className="h-4 w-4" /> <span>Duration: {gig.duration} min • ${gig.price}/hr</span>
+            </div>
+            <div className="pt-2">
+              <Link href={`/teacher/${gig.teacher._id}/profile`}>
+                <Button size="sm" variant="outline" className="gap-2">
+                  <User className="h-4 w-4" /> View Full Profile
+                </Button>
+              </Link>
             </div>
           </div>
 

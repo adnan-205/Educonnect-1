@@ -38,6 +38,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           const { token, user: backendUser } = res.data
           localStorage.setItem('token', token)
           localStorage.setItem('user', JSON.stringify(backendUser))
+          localStorage.setItem('userEmail', email)
           // Preserve existing role if backend does not return one yet
           const existingRole = typeof window !== 'undefined' ? localStorage.getItem('role') : null
           if (backendUser?.role) {

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { gigsApi } from "@/services/api"
+import { gigsApi, uploadsApi } from "@/services/api"
 import { Loader2 } from "lucide-react"
 
 const CATEGORIES = [
@@ -33,6 +33,8 @@ export default function CreateGigPage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
+  const [thumbFile, setThumbFile] = useState<File | null>(null)
+  const [thumbPreview, setThumbPreview] = useState<string>("")
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
@@ -41,6 +43,25 @@ export default function CreateGigPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    // Client-side validation to avoid 400s
+    if (!form.title.trim() || !form.description.trim()) {
+      setError("Title and description are required")
+      return
+    }
+    if (!form.category) {
+      setError("Please select a category")
+      return
+    }
+    const priceNum = Number(form.price)
+    const durationNum = Number(form.duration)
+    if (!Number.isFinite(priceNum) || priceNum <= 0) {
+      setError("Price must be a positive number")
+      return
+    }
+    if (!Number.isFinite(durationNum) || durationNum <= 0) {
+      setError("Duration must be a positive number of minutes")
+      return
+    }
     try {
       setSubmitting(true)
       const payload = {
@@ -51,13 +72,48 @@ export default function CreateGigPage() {
         duration: Number(form.duration),
         thumbnailUrl: form.thumbnailUrl || undefined,
       }
-      await gigsApi.createGig(payload)
+      const res = await gigsApi.createGig(payload)
+      const created = res?.data || null
+      const gigId = created?._id || created?.id
+
+      // If a local thumbnail was chosen, upload it and auto-link to the gig
+      if (gigId && thumbFile) {
+        try {
+          await uploadsApi.uploadGigThumbnail(thumbFile, gigId)
+        } catch (err: any) {
+          // Do not block creation on thumbnail upload failures
+          console.error('Thumbnail upload failed, proceeding:', err)
+        }
+      }
       router.replace("/dashboard-2/gigs")
     } catch (e: any) {
-      setError(e?.response?.data?.message || "Failed to create gig")
+      const msg = e?.response?.data?.message || "Failed to create gig"
+      const errs = e?.response?.data?.errors
+      setError(errs && Array.isArray(errs) && errs.length ? `${msg}: ${errs.join(', ')}` : msg)
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const onThumbSelect: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    setError("")
+    const f = e.target.files?.[0] || null
+    if (!f) {
+      setThumbFile(null)
+      setThumbPreview("")
+      return
+    }
+    if (!/^image\//i.test(f.type)) {
+      setError("Please select a valid image file")
+      return
+    }
+    if (f.size > 5 * 1024 * 1024) {
+      setError("Image must be 5MB or smaller")
+      return
+    }
+    setThumbFile(f)
+    const url = URL.createObjectURL(f)
+    setThumbPreview(url)
   }
 
   return (
@@ -74,11 +130,13 @@ export default function CreateGigPage() {
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
               <Label htmlFor="title">Title</Label>
-              <Input id="title" name="title" required value={form.title} onChange={onChange} placeholder="e.g., Algebra Basics for High School" />
+              <Input id="title" name="title" maxLength={100} required value={form.title} onChange={onChange} placeholder="e.g., Algebra Basics for High School" />
+              <div className="text-xs text-muted-foreground mt-1">{form.title.length}/100</div>
             </div>
             <div>
               <Label htmlFor="description">Description</Label>
-              <Textarea id="description" name="description" required value={form.description} onChange={onChange} placeholder="Describe what you teach, your approach, and what students will learn." />
+              <Textarea id="description" name="description" maxLength={500} required value={form.description} onChange={onChange} placeholder="Describe what you teach, your approach, and what students will learn." />
+              <div className="text-xs text-muted-foreground mt-1">{form.description.length}/500</div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -106,6 +164,19 @@ export default function CreateGigPage() {
             <div>
               <Label htmlFor="thumbnailUrl">Thumbnail URL (optional)</Label>
               <Input id="thumbnailUrl" name="thumbnailUrl" value={form.thumbnailUrl} onChange={onChange} placeholder="https://..." />
+            </div>
+
+            {/* Local upload */}
+            <div className="space-y-2">
+              <Label>Upload Thumbnail (local image)</Label>
+              <div className="flex items-center gap-3">
+                <Input type="file" accept="image/*" onChange={onThumbSelect} />
+              </div>
+              {(thumbPreview || form.thumbnailUrl) && (
+                <div className="mt-2">
+                  <img src={thumbPreview || form.thumbnailUrl} alt="Thumbnail preview" className="w-full max-w-xs h-40 object-cover rounded border" />
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3">

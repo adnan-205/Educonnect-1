@@ -3,28 +3,27 @@
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Star, Clock, DollarSign, Users, BookOpen } from "lucide-react"
+import { Search, Star, Clock, BookOpen } from "lucide-react"
 import Link from "next/link"
+import { gigsApi } from "@/services/api"
+import { getGigThumb } from "@/lib/images"
 
 interface Gig {
-  id: number
+  _id: string
   title: string
-  subject: string
-  teacher: {
-    name: string
-    avatar?: string
-    rating: number
-    totalStudents: number
-  }
+  description: string
+  category: string
   price: number
   duration: number
-  description: string
-  tags: string[]
-  rating: number
-  totalBookings: number
+  thumbnailUrl?: string
+  teacher: {
+    _id: string
+    name: string
+    avatar?: string
+  }
 }
 
 interface GigSearchProps {
@@ -36,126 +35,35 @@ export function GigSearch({ className }: GigSearchProps) {
   const [searchResults, setSearchResults] = useState<Gig[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [showResults, setShowResults] = useState(false)
-  // Simple filters
+  // Filters
   const [selectedSubject, setSelectedSubject] = useState("")
   const [selectedTopic, setSelectedTopic] = useState("")
   const [maxPrice, setMaxPrice] = useState("")
   const [minRating, setMinRating] = useState("")
+  const [allGigs, setAllGigs] = useState<Gig[]>([])
 
-  // Mock gigs data - in a real app, this would come from an API
-  const mockGigs: Gig[] = [
-    {
-      id: 1,
-      title: "Advanced Mathematics Tutoring",
-      subject: "Mathematics",
-      teacher: {
-        name: "Sarah Johnson",
-        avatar: "",
-        rating: 4.9,
-        totalStudents: 150
-      },
-      price: 45,
-      duration: 60,
-      description: "Comprehensive math tutoring covering algebra, calculus, and statistics for high school and college students.",
-      tags: ["mathematics", "algebra", "calculus", "statistics", "trigonometry"],
-      rating: 4.9,
-      totalBookings: 89
-    },
-    {
-      id: 2,
-      title: "Python Programming for Beginners",
-      subject: "Programming",
-      teacher: {
-        name: "Mike Chen",
-        avatar: "",
-        rating: 4.8,
-        totalStudents: 120
-      },
-      price: 35,
-      duration: 90,
-      description: "Learn Python from scratch with hands-on projects and real-world applications.",
-      tags: ["python", "programming", "coding", "software development", "web development"],
-      rating: 4.8,
-      totalBookings: 76
-    },
-    {
-      id: 3,
-      title: "English Literature & Writing",
-      subject: "English",
-      teacher: {
-        name: "Emma Wilson",
-        avatar: "",
-        rating: 4.7,
-        totalStudents: 95
-      },
-      price: 30,
-      duration: 75,
-      description: "Improve your writing skills and explore classic and modern literature.",
-      tags: ["english", "literature", "writing", "essay", "grammar", "reading"],
-      rating: 4.7,
-      totalBookings: 54
-    },
-    {
-      id: 4,
-      title: "Physics - Mechanics & Thermodynamics",
-      subject: "Physics",
-      teacher: {
-        name: "Dr. James Rodriguez",
-        avatar: "",
-        rating: 4.9,
-        totalStudents: 80
-      },
-      price: 50,
-      duration: 60,
-      description: "Master physics concepts with clear explanations and problem-solving techniques.",
-      tags: ["physics", "mechanics", "thermodynamics", "science", "engineering"],
-      rating: 4.9,
-      totalBookings: 67
-    },
-    {
-      id: 5,
-      title: "Spanish Conversation & Grammar",
-      subject: "Languages",
-      teacher: {
-        name: "Maria Garcia",
-        avatar: "",
-        rating: 4.8,
-        totalStudents: 110
-      },
-      price: 25,
-      duration: 45,
-      description: "Learn Spanish through conversation practice and structured grammar lessons.",
-      tags: ["spanish", "language", "conversation", "grammar", "vocabulary"],
-      rating: 4.8,
-      totalBookings: 92
-    },
-    {
-      id: 6,
-      title: "Chemistry - Organic & Inorganic",
-      subject: "Chemistry",
-      teacher: {
-        name: "Dr. Lisa Park",
-        avatar: "",
-        rating: 4.6,
-        totalStudents: 65
-      },
-      price: 40,
-      duration: 60,
-      description: "Comprehensive chemistry tutoring covering both organic and inorganic chemistry.",
-      tags: ["chemistry", "organic", "inorganic", "science", "lab", "reactions"],
-      rating: 4.6,
-      totalBookings: 43
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await gigsApi.getAllGigs()
+        setAllGigs(res?.data || [])
+      } catch (e) {
+        // ignore
+      }
     }
-  ]
+    load()
+  }, [])
 
-  const subjects = Array.from(new Set(mockGigs.map(g => g.subject)))
+  const subjects = Array.from(new Set(allGigs.map(g => g.category)))
 
   const applyFilters = (items: Gig[]) => {
     return items.filter(gig => {
-      const okSubject = !selectedSubject || gig.subject === selectedSubject
-      const okTopic = !selectedTopic || gig.tags.some(t => t.toLowerCase().includes(selectedTopic.toLowerCase()))
+      const okSubject = !selectedSubject || gig.category === selectedSubject
+      const topic = selectedTopic.trim().toLowerCase()
+      const okTopic = !topic || gig.title.toLowerCase().includes(topic) || gig.description.toLowerCase().includes(topic)
       const okPrice = !maxPrice || gig.price <= Number(maxPrice)
-      const okRating = !minRating || gig.rating >= Number(minRating)
+      // minRating not available yet from backend; keep UI but ignore until implemented
+      const okRating = true
       return okSubject && okTopic && okPrice && okRating
     })
   }
@@ -171,16 +79,15 @@ export function GigSearch({ className }: GigSearchProps) {
       return
     }
 
-    // Simulate API delay
+    // Client-side filter from fetched gigs
     setTimeout(() => {
-      const results = mockGigs.filter(gig => {
+      const results = (allGigs || []).filter(gig => {
         const searchTerm = query.toLowerCase()
         return (
           gig.title.toLowerCase().includes(searchTerm) ||
-          gig.subject.toLowerCase().includes(searchTerm) ||
+          gig.category.toLowerCase().includes(searchTerm) ||
           gig.description.toLowerCase().includes(searchTerm) ||
-          gig.tags.some(tag => tag.toLowerCase().includes(searchTerm)) ||
-          gig.teacher.name.toLowerCase().includes(searchTerm)
+          gig.teacher?.name?.toLowerCase().includes(searchTerm)
         )
       })
       const filtered = applyFilters(results)
@@ -194,15 +101,14 @@ export function GigSearch({ className }: GigSearchProps) {
   useEffect(() => {
     if (!showResults || !searchQuery.trim()) return
     const searchTerm = searchQuery.toLowerCase()
-    const base = mockGigs.filter(gig => (
+    const base = (allGigs || []).filter(gig => (
       gig.title.toLowerCase().includes(searchTerm) ||
-      gig.subject.toLowerCase().includes(searchTerm) ||
+      gig.category.toLowerCase().includes(searchTerm) ||
       gig.description.toLowerCase().includes(searchTerm) ||
-      gig.tags.some(tag => tag.toLowerCase().includes(searchTerm)) ||
-      gig.teacher.name.toLowerCase().includes(searchTerm)
+      gig.teacher?.name?.toLowerCase().includes(searchTerm)
     ))
     setSearchResults(applyFilters(base))
-  }, [selectedSubject, selectedTopic, maxPrice, minRating])
+  }, [selectedSubject, selectedTopic, maxPrice, minRating, allGigs])
 
   const clearFilters = () => {
     setSelectedSubject("")
@@ -309,29 +215,24 @@ export function GigSearch({ className }: GigSearchProps) {
           {searchResults.length > 0 ? (
             <div className="grid gap-6">
               {searchResults.map((gig) => (
-                <Card key={gig.id} className="hover:shadow-lg transition-shadow">
+                <Card key={gig._id} className="hover:shadow-lg transition-shadow">
                   <CardContent className="p-6">
+                    <div className="mb-4">
+                      <img src={getGigThumb(gig.thumbnailUrl, 640, 360)} alt={`${gig.title} thumbnail`} className="w-full h-40 object-cover rounded-md border" />
+                    </div>
                     <div className="flex flex-col md:flex-row gap-6">
                       {/* Teacher Info */}
                       <div className="flex items-center gap-4 md:w-1/3">
                         <Avatar className="w-16 h-16">
-                          <AvatarImage src={gig.teacher.avatar} alt={gig.teacher.name} />
+                          <AvatarImage src={gig.teacher?.avatar} alt={gig.teacher?.name} />
                           <AvatarFallback className="text-lg">
-                            {getInitials(gig.teacher.name)}
+                            {getInitials(gig.teacher?.name || 'T')}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <h4 className="font-semibold text-lg">{gig.teacher.name}</h4>
+                          <h4 className="font-semibold text-lg">{gig.teacher?.name}</h4>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span>{gig.teacher.rating}</span>
-                            </div>
-                            <span>•</span>
-                            <div className="flex items-center gap-1">
-                              <Users className="h-4 w-4" />
-                              <span>{gig.teacher.totalStudents} students</span>
-                            </div>
+                            <Badge variant="secondary">{gig.category}</Badge>
                           </div>
                         </div>
                       </div>
@@ -341,9 +242,6 @@ export function GigSearch({ className }: GigSearchProps) {
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <h3 className="text-xl font-semibold mb-2">{gig.title}</h3>
-                            <Badge variant="secondary" className="mb-2">
-                              {gig.subject}
-                            </Badge>
                           </div>
                           <div className="text-right">
                             <div className="text-2xl font-bold text-primary">${gig.price}</div>
@@ -359,24 +257,16 @@ export function GigSearch({ className }: GigSearchProps) {
                               <Clock className="h-4 w-4" />
                               <span>{gig.duration} min</span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <BookOpen className="h-4 w-4" />
-                              <span>{gig.totalBookings} bookings</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span>{gig.rating}</span>
-                            </div>
                           </div>
                           
                           <div className="flex gap-2">
                             <Button variant="outline" asChild>
-                              <Link href={`/teacher/${gig.teacher.name.toLowerCase().replace(' ', '-')}`}>
+                              <Link href={`/teacher/${gig.teacher?._id}`}>
                                 View Profile
                               </Link>
                             </Button>
                             <Button asChild>
-                              <Link href={`/book/${gig.id}`}>
+                              <Link href={`/book/${gig._id}`}>
                                 Book Session
                               </Link>
                             </Button>

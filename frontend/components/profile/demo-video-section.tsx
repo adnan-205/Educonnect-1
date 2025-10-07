@@ -23,7 +23,7 @@ export interface DemoVideo {
     uploadDate: string
     videoType: 'local' | 'external' // New field to distinguish between local and external videos
     localFile?: File // New field to store local file reference
-    cloudinaryPublicId?: string // Add this field to store Cloudinary public ID
+    cloudinaryPublicId?: string
 }
 
 interface DemoVideoSectionProps {
@@ -56,7 +56,7 @@ export function DemoVideoSection({ videos, onUpdate, isEditable = true }: DemoVi
             setUploading(true)
             let videoUrl = formData.videoUrl
             let duration = formData.duration
-            let cloudinaryPublicId: string | undefined = undefined
+            let cloudinaryPublicId: string | undefined
 
             // If local upload tab, upload file to Cloudinary first
             if (activeTab === 'local') {
@@ -84,7 +84,7 @@ export function DemoVideoSection({ videos, onUpdate, isEditable = true }: DemoVi
                 onUpdate(updatedVideos)
             } else {
                 const newVideo: DemoVideo = {
-                    id: `video_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    id: Date.now().toString(),
                     ...formData,
                     videoUrl,
                     duration,
@@ -420,8 +420,8 @@ export function DemoVideoSection({ videos, onUpdate, isEditable = true }: DemoVi
                     </div>
                 ) : (
                     <div className="grid gap-4">
-                        {videos.map((video, index) => (
-                            <div key={video.id || `video-${index}`} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                        {videos.map((video) => (
+                            <div key={video.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                                 <div className="flex items-start gap-4">
                                     {/* Video Thumbnail */}
                                     <div className="relative flex-shrink-0">
