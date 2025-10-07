@@ -53,16 +53,47 @@ export const getGig = async (req: Request, res: Response) => {
 // Create new gig
 export const createGig = async (req: Request, res: Response) => {
   try {
-    req.body.teacher = req.user._id;
-    const gig = await Gig.create(req.body);
+    // Basic validation & coercion
+    const { title, description, price, category, duration, thumbnailUrl } = req.body || {};
+
+    if (!title || !description || !category) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: ['title, description, and category are required'] });
+    }
+    const priceNum = Number(price);
+    const durationNum = Number(duration);
+    if (!Number.isFinite(priceNum) || priceNum <= 0) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: ['price must be a positive number'] });
+    }
+    if (!Number.isFinite(durationNum) || durationNum <= 0) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: ['duration must be a positive number (minutes)'] });
+    }
+
+    const payload: any = {
+      teacher: req.user._id,
+      title: String(title).trim(),
+      description: String(description).trim(),
+      category: String(category).trim(),
+      price: priceNum,
+      duration: durationNum,
+    };
+    if (thumbnailUrl) payload.thumbnailUrl = thumbnailUrl;
+
+    const gig = await Gig.create(payload);
     res.status(201).json({
       success: true,
       data: gig,
     });
   } catch (err) {
+    // Return validation errors if present
+    if ((err as any)?.name === 'ValidationError') {
+      const errors = Object.values((err as any).errors || {}).map((e: any) => e?.message || String(e));
+      return res.status(400).json({ success: false, message: 'Validation failed', errors });
+    }
+    console.error('Create gig error:', err);
     res.status(500).json({
       success: false,
       message: 'Error creating gig',
+      details: (err as any)?.message || undefined,
     });
   }
 };

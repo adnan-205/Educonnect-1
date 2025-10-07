@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Search, Star, Clock, BookOpen, Code, Languages, FlaskConical, Loader2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { gigsApi } from "@/services/api"
+import { getGigThumb } from "@/lib/images"
 
 // Type definitions
 interface Gig {
@@ -21,6 +22,7 @@ interface Gig {
   price: number
   duration: string
   createdAt: string
+  thumbnailUrl?: string
   teacher: {
     _id: string
     name: string
@@ -212,10 +214,8 @@ export default function BrowsePage() {
                 ) : (
                     filteredGigs.map((gig) => (
                         <Card key={gig._id} className="overflow-hidden rounded-2xl hover:shadow-lg transition-shadow">
-                            <div className="aspect-video w-full overflow-hidden bg-gradient-to-br from-primary/10 to-purple-500/10">
-                                <div className="w-full h-full flex items-center justify-center">
-                                    <BookOpen className="h-12 w-12 text-primary/50" />
-                                </div>
+                            <div className="aspect-video w-full overflow-hidden bg-muted">
+                                <img src={getGigThumb(gig.thumbnailUrl, 640, 360)} alt={`${gig.title} thumbnail`} className="w-full h-full object-cover" />
                             </div>
                             <CardContent className="p-4">
                                 <div className="flex items-center justify-between mb-2">

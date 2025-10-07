@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { protect } from '../middleware/auth';
-import { uploadImage, uploadVideo } from '../controllers/uploads';
+import { uploadImage, uploadVideo, uploadGigThumbnail, deleteGigThumbnail } from '../controllers/uploads';
 
 const router = express.Router();
 
@@ -33,5 +33,7 @@ const videoUpload = multer({
 
 router.post('/image', protect, imageUpload.single('file'), uploadImage);
 router.post('/video', protect, videoUpload.single('file'), uploadVideo);
+router.post('/gig-thumbnail', protect, imageUpload.single('file'), uploadGigThumbnail);
+router.delete('/gig-thumbnail', protect, deleteGigThumbnail);
 
 export default router;

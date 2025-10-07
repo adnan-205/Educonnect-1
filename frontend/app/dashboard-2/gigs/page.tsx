@@ -9,6 +9,7 @@ import { gigsApi, usersApi } from "@/services/api"
 import { useToast } from "@/hooks/use-toast"
 import { Plus, Edit, Trash2, Star, DollarSign, Clock, Users } from "lucide-react"
 import Link from "next/link"
+import { getGigThumb } from "@/lib/images"
 
 export default function GigsPage() {
     const [gigs, setGigs] = useState<any[]>([])
@@ -164,6 +165,9 @@ export default function GigsPage() {
                                 </div>
                             </CardHeader>
                             <CardContent className="pt-0">
+                                <div className="mb-3">
+                                    <img src={getGigThumb(gig.thumbnailUrl, 640, 160)} alt={`${gig.title} thumbnail`} className="w-full h-40 object-cover rounded-md border" />
+                                </div>
                                 <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                                     {gig.description}
                                 </p>

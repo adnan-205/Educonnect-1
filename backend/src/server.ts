@@ -118,8 +118,9 @@ const corsOptions: CorsOptions = {
 app.use(cors(corsOptions));
 
 // Enhanced rate limiting with configurable options
+const isDev = process.env.NODE_ENV === 'development';
 const rateLimitWindow = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'); // 15 minutes default
-const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100');
+const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (isDev ? '1000' : '100'));
 
 const limiter = rateLimit({
   windowMs: rateLimitWindow,
@@ -131,6 +132,8 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
+    // In development, skip rate limiting entirely to avoid disrupting local testing
+    if (isDev) return true;
     // Skip rate limiting for health checks
     return req.path === '/health' || req.path === '/api/health';
   }

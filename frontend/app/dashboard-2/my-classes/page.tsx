@@ -5,13 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { bookingsApi, paymentsApi } from "@/services/api"
+import { api, bookingsApi, paymentsApi } from "@/services/api"
 import { useToast } from "@/hooks/use-toast"
 import { Calendar, Clock, Video, User } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useUser } from "@clerk/nextjs"
 
 export default function MyClassesPage() {
     const router = useRouter()
+    const { isLoaded, isSignedIn, user } = useUser()
     const [classes, setClasses] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
@@ -19,8 +21,27 @@ export default function MyClassesPage() {
     const [paidMap, setPaidMap] = useState<Record<string, boolean>>({})
 
     useEffect(() => {
-        loadClasses()
-    }, [])
+        const syncAndFetch = async () => {
+            try {
+                if (!isLoaded) return
+                if (!isSignedIn) return
+                let token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+                if (!token && user?.primaryEmailAddress?.emailAddress) {
+                    try {
+                        const email = user.primaryEmailAddress.emailAddress
+                        const name = user.fullName || undefined
+                        const res = await api.post('/auth/clerk-sync', { email, name })
+                        const { token: t, user: backendUser } = res.data || {}
+                        if (t) localStorage.setItem('token', t)
+                        if (backendUser) localStorage.setItem('user', JSON.stringify(backendUser))
+                    } catch {}
+                }
+                await loadClasses()
+            } finally {}
+        }
+        syncAndFetch()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoaded, isSignedIn, user?.id])
 
     const loadClasses = async () => {
         try {

@@ -23,6 +23,7 @@ export interface DemoVideo {
     uploadDate: string
     videoType: 'local' | 'external' // New field to distinguish between local and external videos
     localFile?: File // New field to store local file reference
+    cloudinaryPublicId?: string
 }
 
 interface DemoVideoSectionProps {
@@ -55,6 +56,7 @@ export function DemoVideoSection({ videos, onUpdate, isEditable = true }: DemoVi
             setUploading(true)
             let videoUrl = formData.videoUrl
             let duration = formData.duration
+            let cloudinaryPublicId: string | undefined
 
             // If local upload tab, upload file to Cloudinary first
             if (activeTab === 'local') {
@@ -62,7 +64,7 @@ export function DemoVideoSection({ videos, onUpdate, isEditable = true }: DemoVi
                 const up = await uploadsApi.uploadVideo(localFile, 'educonnect/demo-videos')
                 videoUrl = up?.data?.url || videoUrl
                 duration = (up?.data?.duration ? formatDuration(up.data.duration) : duration)
-                const cloudinaryPublicId = up?.data?.public_id
+                cloudinaryPublicId = up?.data?.public_id
             }
 
             if (editingVideo) {

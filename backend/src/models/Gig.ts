@@ -33,6 +33,9 @@ const gigSchema = new mongoose.Schema<IGig>({
   thumbnailUrl: {
     type: String,
   },
+  thumbnailPublicId: {
+    type: String,
+  },
   availability: {
     days: [{
       type: String,

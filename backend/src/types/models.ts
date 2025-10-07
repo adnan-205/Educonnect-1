@@ -84,6 +84,7 @@ export interface IGig {
   category: string;
   duration: number;
   thumbnailUrl?: string;
+  thumbnailPublicId?: string;
   availability: {
     days: string[];
     times: string[];
@@ -105,6 +106,9 @@ export interface IBooking {
   // Meeting fields
   meetingLink?: string;
   meetingRoomId?: string;
+  // Attendance tracking
+  attended?: boolean;
+  attendedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

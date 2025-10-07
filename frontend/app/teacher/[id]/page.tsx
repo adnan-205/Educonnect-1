@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { usersApi } from "@/services/api"
-import { BookOpen, Star, Clock, Loader2 } from "lucide-react"
+import { BookOpen, Star, Clock, Loader2, User } from "lucide-react"
+import { getGigThumb } from "@/lib/images"
 
 interface Teacher {
   _id: string
@@ -34,6 +35,7 @@ interface Gig {
   price: number
   duration: number
   createdAt: string
+  thumbnailUrl?: string
 }
 
 export default function PublicTeacherProfilePage() {
@@ -106,6 +108,13 @@ export default function PublicTeacherProfilePage() {
                   </div>
                 )}
               </div>
+              <div className="mt-3">
+                <Link href={`/teacher/${params.id}/profile`}>
+                  <Button size="sm" variant="outline" className="gap-2">
+                    <User className="h-4 w-4" /> View Full Profile
+                  </Button>
+                </Link>
+              </div>
               {teacher.profile?.subjects && teacher.profile.subjects.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-3">
                   {teacher.profile.subjects.slice(0, 4).map((s, i) => (
@@ -137,8 +146,8 @@ export default function PublicTeacherProfilePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {gigs.map((gig) => (
               <Card key={gig._id} className="overflow-hidden hover:shadow-md transition-shadow">
-                <div className="aspect-video w-full bg-gradient-to-br from-primary/10 to-purple-500/10 grid place-items-center">
-                  <BookOpen className="h-12 w-12 text-primary/50" />
+                <div className="aspect-video w-full overflow-hidden bg-muted">
+                  <img src={getGigThumb(gig.thumbnailUrl, 640, 360)} alt={`${gig.title} thumbnail`} className="w-full h-full object-cover" />
                 </div>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between">

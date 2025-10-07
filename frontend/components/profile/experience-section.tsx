@@ -269,7 +269,7 @@ export function ExperienceSection({ experiences, onUpdate, isEditable = true }: 
                     {experience.skills && experience.skills.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-3">
                         {experience.skills.map((skill, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
+                          <Badge key={`${experience.id}-${skill}-${index}`} variant="secondary" className="text-xs">
                             {skill}
                           </Badge>
                         ))}

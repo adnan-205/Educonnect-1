@@ -51,9 +51,11 @@ export const usersApi = {
 };
 
 export const paymentsApi = {
-  initPayment: async (gigId: string) => {
+  initPayment: async (gigId: string, bookingId?: string) => {
     try {
-      const response = await api.post('/payments/init', { gigId });
+      const payload: any = { gigId };
+      if (bookingId) payload.bookingId = bookingId;
+      const response = await api.post('/payments/init', payload);
       return response.data; // { success, url, tran_id }
     } catch (error) {
       console.error('Error initializing payment:', error);
@@ -63,7 +65,7 @@ export const paymentsApi = {
 
   getStatus: async (gigId: string) => {
     try {
-      const response = await api.get(`/payments/status/${encodeURIComponent(gigId)}`);
+      const response = await api.get(`/payments/status/${encodeURIComponent(gigId)}`, { timeout: 15000 });
       return response.data; // { success, paid }
     } catch (error) {
       console.error('Error checking payment status:', error);
@@ -73,7 +75,7 @@ export const paymentsApi = {
 
   getBookingStatus: async (bookingId: string) => {
     try {
-      const response = await api.get(`/payments/booking-status/${encodeURIComponent(bookingId)}`);
+      const response = await api.get(`/payments/booking-status/${encodeURIComponent(bookingId)}`, { timeout: 15000 });
       return response.data; // { success, paid }
     } catch (error) {
       console.error('Error checking booking payment status:', error);
@@ -87,7 +89,15 @@ export const uploadsApi = {
     try {
       const form = new FormData();
       form.append('file', file);
-      const response = await api.post(`/uploads/image${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`, form);
+      const response = await api.post(
+        `/uploads/image${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`,
+        form,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          // Image uploads can still take time on slow networks; give them breathing room
+          timeout: 60000,
+        }
+      );
       return response.data;
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -99,10 +109,47 @@ export const uploadsApi = {
     try {
       const form = new FormData();
       form.append('file', file);
-      const response = await api.post(`/uploads/video${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`, form);
+      const response = await api.post(
+        `/uploads/video${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`,
+        form,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          // Video uploads are larger; extend timeout generously (2 minutes)
+          timeout: 120000,
+        }
+      );
       return response.data;
     } catch (error) {
       console.error('Error uploading video:', error);
+      throw error;
+    }
+  },
+  
+  uploadGigThumbnail: async (file: File, gigId: string) => {
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const response = await api.post(
+        `/uploads/gig-thumbnail?gigId=${encodeURIComponent(gigId)}`,
+        form,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 60000,
+        }
+      );
+      return response.data; // { success, data: { url, public_id, ... }, gig }
+    } catch (error) {
+      console.error('Error uploading gig thumbnail:', error);
+      throw error;
+    }
+  },
+
+  deleteGigThumbnail: async (gigId: string) => {
+    try {
+      const response = await api.delete(`/uploads/gig-thumbnail`, { params: { gigId } });
+      return response.data; // { success, message, gig }
+    } catch (error) {
+      console.error('Error deleting gig thumbnail:', error);
       throw error;
     }
   },
@@ -154,7 +201,7 @@ api.interceptors.request.use(
   }
 );
 
-// Add response interceptor for debugging
+// Add response interceptor for debugging and lightweight 401 recovery
 api.interceptors.response.use(
   (response) => {
     console.log(`[API] ${response.status} ${response.config.url}`, {
@@ -164,19 +211,45 @@ api.interceptors.response.use(
     return response;
   },
   (error: AxiosError) => {
+    const cfg = (error.config || {}) as any;
+    // Attempt a one-time re-auth on 401 using stored userEmail (set by Providers)
+    const status = error.response?.status;
+    if (status === 401 && !cfg._retryAuth) {
+      try {
+        const email = (typeof window !== 'undefined' && (localStorage.getItem('userEmail') || JSON.parse(localStorage.getItem('user') || '{}')?.email)) || null;
+        if (email) {
+          cfg._retryAuth = true;
+          // Keep name optional
+          return api.post('/auth/clerk-sync', { email })
+            .then((res) => {
+              const token = (res?.data as any)?.token;
+              if (token) {
+                try { localStorage.setItem('token', token) } catch {}
+                // attach token and retry
+                cfg.headers = cfg.headers || {};
+                cfg.headers['Authorization'] = `Bearer ${token}`;
+              }
+              return api.request(cfg);
+            })
+        }
+      } catch {}
+    }
+
     if (error.response) {
       // The request was made and the server responded with a status code
-      console.error('[API] Response Error:', {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        url: error.config?.url,
-        method: error.config?.method,
-        data: error.response.data,
-        headers: error.response.headers,
-      });
+      try {
+        const safeStatus = error.response.status;
+        const safeUrl = cfg?.url || 'unknown';
+        const safeMethod = cfg?.method || 'get';
+        const dataAny = (error.response.data as any) || {};
+        const msg = dataAny?.message || error.message || 'Unknown error';
+        const errs = Array.isArray(dataAny?.errors) ? `: ${dataAny.errors.join(', ')}` : '';
+        console.error(`[API] Response Error ${safeStatus} ${safeMethod?.toUpperCase?.()} ${safeUrl}: ${msg}${errs}`);
+      } catch {
+        console.error('[API] Response Error (unprintable)');
+      }
     } else if (error.request) {
       // The request was made but no response was received
-      const cfg = error.config || {};
       const info = {
         message: error.message,
         code: (error as any).code,
@@ -318,6 +391,26 @@ export const bookingsApi = {
       return response.data;
     } catch (error) {
       console.error(`Error updating booking ${id}:`, error);
+      throw error;
+    }
+  },
+  
+  getByRoom: async (roomId: string) => {
+    try {
+      const response = await api.get(`/bookings/room/${encodeURIComponent(roomId)}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching booking by room ${roomId}:`, error);
+      throw error;
+    }
+  },
+  
+  markAttendance: async (bookingId: string) => {
+    try {
+      const response = await api.post(`/bookings/${encodeURIComponent(bookingId)}/attendance`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error marking attendance for booking ${bookingId}:`, error);
       throw error;
     }
   },

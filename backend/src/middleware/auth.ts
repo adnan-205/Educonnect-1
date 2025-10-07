@@ -21,7 +21,11 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    req.user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Not authorized: user not found' });
+    }
+    req.user = user as any;
     next();
   } catch (err) {
     return res.status(401).json({

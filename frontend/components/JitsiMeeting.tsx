@@ -161,7 +161,7 @@ export default function JitsiMeeting({
           Initializing meeting...
         </div>
       )}
-      <div ref={containerRef} className="w-full rounded-lg overflow-hidden border border-gray-200" />
+      <div data-testid="jitsi-container" ref={containerRef} className="w-full rounded-lg overflow-hidden border border-gray-200" />
     </div>
   );
 }

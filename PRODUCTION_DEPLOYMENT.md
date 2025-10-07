@@ -313,3 +313,50 @@ For deployment issues:
 5. Monitor resource usage
 
 Remember to keep your secrets secure and never commit them to version control!
+
+---
+
+## 🗂️ Project Folder Layout (Non‑Coder Friendly)
+
+This section explains where things live in the codebase in plain English.
+
+- backend/src/
+  - controllers/
+    - Thin HTTP handlers. They read the request and call the service. Example: `controllers/payments.ts`.
+  - services/
+    - Business logic. Services orchestrate repositories and external APIs. Example: `services/payments.service.ts` prepares SSLCommerz payload, creates Payment records, and validates IPN.
+  - repositories/
+    - Database access. These files read/write MongoDB using Mongoose, isolated from business logic.
+      - `PaymentRepository.ts` – CRUD for payments, status helpers.
+      - `BookingRepository.ts` – Update booking status, find by room.
+  - models/
+    - Mongoose schemas (database shapes) for `User`, `Gig`, `Booking`, `Payment`.
+    - `Payment` includes `bookingId` and a `statusHistory` trail.
+  - routes/
+    - URL mappings. Each file groups endpoints for a feature (auth, bookings, payments, etc.).
+    - New: `GET /api/bookings/room/:roomId` to validate meeting access.
+  - middleware/
+    - Reusable Express middleware (auth guard, input validation, error handler, logging, CORS).
+  - config/
+    - Configuration for external services. Example: `config/sslcommerz.ts`.
+  - utils/
+    - Small helpers. Example: `utils/paymentLogger.ts` writes payment callbacks to `logs/payment-callbacks.log`.
+  - logs/
+    - Runtime logs written by the app (ignored by git). Payment callbacks are appended to `payment-callbacks.log`.
+
+- frontend/
+  - app/
+    - Next.js App Router pages (UI screens). Example: `dashboard-2/join-class`, `dashboard-2/video-call/[roomId]`.
+  - components/
+    - Reusable UI building blocks (Navbar, buttons, forms, JitsiMeeting, PaymentButton).
+  - hooks/
+    - Reusable React hooks. Example: `hooks/usePayment.ts` encapsulates Pay Now + status polling.
+  - services/
+    - API client wrappers for HTTP calls. Example: `services/api.ts` contains `bookingsApi`, `paymentsApi`, etc.
+
+### How a payment works (short)
+1) Frontend calls `POST /api/payments/init` → backend service creates PENDING payment + requests SSLCommerz → returns Gateway URL.
+2) User completes payment on SSLCommerz → SSLCommerz calls backend `/api/payments/success|fail|cancel` and `/api/payments/ipn`.
+3) Backend updates Payment status → `statusHistory` is appended → Payment logs are written to `logs/payment-callbacks.log`.
+4) Frontend polls status via `paymentsApi.getStatus(gigId)` or `getBookingStatus(bookingId)` to unlock “Join Class”.
+

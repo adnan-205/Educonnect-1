@@ -25,7 +25,9 @@ export default function DashboardLayout({
     const [userType, setUserType] = useState<"student" | "teacher" | "admin" | null>(null)
     const router = useRouter()
     const pathname = usePathname()
-    const { isLoaded, isSignedIn } = useUser()
+    const { isLoaded, isSignedIn, user } = useUser()
+    const [displayName, setDisplayName] = useState<string>("")
+    const [avatarUrl, setAvatarUrl] = useState<string>("")
 
     // Auth + role guard: must be signed in and have a role set
     useEffect(() => {
@@ -59,6 +61,37 @@ export default function DashboardLayout({
             return () => window.removeEventListener("storage", handleStorage)
         }
     }, [])
+
+    // Load displayName and avatar from backend user (localStorage) with Clerk fallback
+    useEffect(() => {
+        try {
+            const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null
+            if (raw) {
+                const u = JSON.parse(raw)
+                if (u?.name) setDisplayName(u.name)
+                if (u?.avatar) setAvatarUrl(u.avatar)
+            }
+        } catch {}
+        if (isLoaded && isSignedIn) {
+            if (!displayName) setDisplayName(user?.fullName || user?.username || user?.firstName || 'User')
+            if (!avatarUrl) setAvatarUrl((user?.imageUrl as string) || '')
+        }
+        const onStorage = (e: StorageEvent) => {
+            if (e.key === 'user' && e.newValue) {
+                try {
+                    const u = JSON.parse(e.newValue)
+                    if (u?.name) setDisplayName(u.name)
+                    if (u?.avatar) setAvatarUrl(u.avatar)
+                } catch {}
+            }
+        }
+        if (typeof window !== 'undefined') {
+            window.addEventListener('storage', onStorage)
+            return () => window.removeEventListener('storage', onStorage)
+        }
+    }, [isLoaded, isSignedIn, user])
+
+    const initials = (name: string) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'
 
     const navigationItems = userType === "teacher" ? [
         { id: "home", label: "Dashboard", icon: Home, href: "/dashboard-2" },
@@ -112,11 +145,11 @@ export default function DashboardLayout({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                         <Avatar className="h-10 w-10">
-                            <AvatarImage src="/placeholder.jpg" />
-                            <AvatarFallback className="text-sm font-semibold">JD</AvatarFallback>
+                            <AvatarImage src={avatarUrl} />
+                            <AvatarFallback className="text-sm font-semibold">{initials(displayName)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <h2 className="text-lg font-semibold text-gray-900">John Doe</h2>
+                            <h2 className="text-lg font-semibold text-gray-900">{displayName}</h2>
                             <p className="text-sm text-gray-500 capitalize">{userType}</p>
                         </div>
                     </div>
@@ -166,11 +199,11 @@ export default function DashboardLayout({
                             className="group transition-transform hover:scale-105"
                         >
                             <Avatar className="h-16 w-16 mx-auto mb-3 group-hover:ring-2 group-hover:ring-blue-300 transition-all">
-                                <AvatarImage src="/placeholder.jpg" />
-                                <AvatarFallback className="text-lg font-semibold">JD</AvatarFallback>
+                                <AvatarImage src={avatarUrl} />
+                                <AvatarFallback className="text-lg font-semibold">{initials(displayName)}</AvatarFallback>
                             </Avatar>
                             <h2 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                John Doe
+                                {displayName}
                             </h2>
                             <p className="text-sm text-gray-500 capitalize">{userType}</p>
                         </Link>

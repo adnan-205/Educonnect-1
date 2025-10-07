@@ -10,13 +10,46 @@ const generateMeetingRoomId = (bookingId: string, gigTitle: string): string => {
   return `educonnect-${sanitizedTitle}-${shortBookingId}`;
 };
 
-// Helper to generate a meeting link from room ID
-const generateMeetingLink = (roomId: string): string => {
-  const jitsiDomain = process.env.JITSI_DOMAIN || 'localhost';
-  const isLocal = jitsiDomain === 'localhost' || jitsiDomain === '127.0.0.1' || jitsiDomain.startsWith('192.168.') || jitsiDomain.startsWith('10.');
-  const scheme = isLocal ? 'http' : 'https';
-  return `${scheme}://${jitsiDomain}/${roomId}`;
+// Mark student attendance for a booking
+export const markAttendance = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    // Only the student who owns this booking can mark attendance
+    if (booking.student.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    // Only accepted bookings can be attended
+    if (booking.status !== 'accepted') {
+      return res.status(400).json({ success: false, message: 'Cannot mark attendance for non-accepted booking' });
+    }
+    
+    // Mark attendance
+    (booking as any).attended = true;
+    (booking as any).attendedAt = new Date();
+    await booking.save();
+
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Failed to mark attendance' });
+  }
 };
+
+  // Helper to generate a meeting link from room ID
+  const generateMeetingLink = (roomId: string): string => {
+    // Always use meet.jit.si over HTTPS to ensure no login/prelogin prompts from self-hosted instances
+    const hash = [
+      'config.prejoinPageEnabled=false',
+      'config.disableDeepLinking=true',
+      'config.enableWelcomePage=false'
+      // interfaceConfig options can also be added if desired, e.g. hiding watermarks
+    ].join('&');
+    return `https://meet.jit.si/${roomId}#${hash}`;
+  };
 
 // Get all bookings
 export const getBookings = async (req: Request, res: Response) => {
@@ -42,8 +75,8 @@ export const getBookings = async (req: Request, res: Response) => {
     const bookings = await Booking.find(filter)
       .populate({
         path: 'gig',
-        select: 'title price duration',
-        populate: { path: 'teacher', select: 'name email' },
+        select: 'title price duration category thumbnailUrl',
+        populate: { path: 'teacher', select: 'name email avatar' },
       })
       .populate('student', 'name email')
       .sort({ createdAt: -1 });
@@ -67,10 +100,10 @@ export const getBooking = async (req: Request, res: Response) => {
     const booking = await Booking.findById(req.params.id)
       .populate({
         path: 'gig',
-        select: 'title price duration',
+        select: 'title price duration category thumbnailUrl',
         populate: {
           path: 'teacher',
-          select: 'name email',
+          select: 'name email avatar',
         },
       })
       .populate('student', 'name email');
@@ -102,8 +135,8 @@ export const getBookingByRoom = async (req: Request, res: Response) => {
     const booking = await Booking.findOne({ meetingRoomId: roomId })
       .populate({
         path: 'gig',
-        select: 'title price duration teacher',
-        populate: { path: 'teacher', select: 'name email' },
+        select: 'title price duration category thumbnailUrl teacher',
+        populate: { path: 'teacher', select: 'name email avatar' },
       })
       .populate('student', 'name email');
 
@@ -111,17 +144,46 @@ export const getBookingByRoom = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
 
-    const isStudent = booking.student && booking.student.toString() === req.user._id.toString();
-    const isTeacher = booking.gig && (booking.gig as any).teacher && (booking.gig as any).teacher._id?.toString?.() === req.user._id.toString();
+    // Normalize IDs to support both populated and unpopulated refs
+    const studentId = (booking as any).student && typeof (booking as any).student === 'object' && (booking as any).student._id
+      ? (booking as any).student._id
+      : (booking as any).student;
+    const teacherId = (booking as any).gig && (booking as any).gig.teacher && typeof (booking as any).gig.teacher === 'object' && (booking as any).gig.teacher._id
+      ? (booking as any).gig.teacher._id
+      : (booking as any).gig.teacher;
+
+    const isStudent = studentId?.toString?.() === req.user._id.toString();
+    const isTeacher = teacherId?.toString?.() === req.user._id.toString();
 
     if (!isStudent && !isTeacher) {
       return res.status(403).json({ success: false, message: 'Access denied for this meeting' });
     }
 
-    // Enforce payment for students before joining class
+    // Must be accepted to join (for both student and teacher)
+    if ((booking as any).status !== 'accepted') {
+      return res.status(403).json({ success: false, message: 'Booking is not accepted yet' });
+    }
+
+    // Enforce join window timing: opens 2 minutes before start, closes after duration
+    const scheduled = (booking as any).scheduledAt || (booking as any).scheduledDate;
+    const startTs = new Date(scheduled).getTime();
+    if (!startTs || isNaN(startTs)) {
+      return res.status(400).json({ success: false, message: 'Invalid scheduled date/time for this booking' });
+    }
+    const durationMin = (booking as any).gig?.duration || 90;
+    const windowOpen = startTs - 2 * 60 * 1000;
+    const endTs = startTs + durationMin * 60 * 1000;
+    const now = Date.now();
+    if (now < windowOpen) {
+      return res.status(403).json({ success: false, message: 'Join window not open yet' });
+    }
+    if (now > endTs) {
+      return res.status(403).json({ success: false, message: 'Class has ended' });
+    }
+
+    // Enforce per-booking payment for students before joining
     if (isStudent) {
-      const gigId = (booking.gig as any)?._id || booking.gig;
-      const paid = await Payment.findOne({ gigId, studentId: req.user._id, status: 'SUCCESS' }).select('_id');
+      const paid = await Payment.findOne({ bookingId: (booking as any)._id, studentId: req.user._id, status: 'SUCCESS' }).select('_id');
       if (!paid) {
         return res.status(402).json({ success: false, message: 'Payment required to join this class' });
       }
@@ -229,8 +291,8 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
     const populated = await Booking.findById(booking._id)
       .populate({
         path: 'gig',
-        select: 'title price duration',
-        populate: { path: 'teacher', select: 'name email' },
+        select: 'title price duration category thumbnailUrl',
+        populate: { path: 'teacher', select: 'name email avatar' },
       })
       .populate('student', 'name email');
 

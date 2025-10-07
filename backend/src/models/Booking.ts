@@ -45,6 +45,17 @@ const bookingSchema = new mongoose.Schema<IBooking>({
     type: String,
     required: false,
   },
+  // Attendance tracking (student)
+  attended: {
+    type: Boolean,
+    default: false,
+    required: false,
+    index: true,
+  },
+  attendedAt: {
+    type: Date,
+    required: false,
+  },
 }, {
   timestamps: true,
 });
