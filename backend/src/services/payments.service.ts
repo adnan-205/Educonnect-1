@@ -7,6 +7,7 @@ import Gig from '../models/Gig';
 import paymentRepo from '../repositories/PaymentRepository';
 import bookingRepo from '../repositories/BookingRepository';
 import { logPaymentEvent } from '../utils/paymentLogger';
+import walletService from './wallet.service';
 
 export class PaymentsService {
   /**
@@ -76,6 +77,7 @@ export class PaymentsService {
 
   /**
    * Mark payment SUCCESS and optionally update linked booking.
+   * Also credits the teacher's wallet with the payment amount minus commission.
    */
   async handleSuccess(tran_id: string) {
     const updated = await paymentRepo.markSuccess(tran_id);
@@ -84,6 +86,32 @@ export class PaymentsService {
         await bookingRepo.updateStatus(updated.bookingId.toString(), 'accepted');
       } catch {}
     }
+    
+    // Credit teacher's wallet after successful payment
+    if (updated) {
+      try {
+        await walletService.creditWallet({
+          teacherId: updated.teacherId,
+          amount: updated.amount,
+          paymentId: updated._id,
+          bookingId: updated.bookingId,
+          description: `Payment received for booking`,
+        });
+        logPaymentEvent('wallet-credited', { 
+          tran_id, 
+          teacherId: updated.teacherId, 
+          amount: updated.amount 
+        });
+      } catch (walletError) {
+        // Log wallet error but don't fail the payment
+        console.error('Wallet credit error:', walletError);
+        logPaymentEvent('wallet-credit-failed', { 
+          tran_id, 
+          error: (walletError as any)?.message 
+        });
+      }
+    }
+    
     logPaymentEvent('success', { tran_id, updatedId: updated?._id, bookingId: updated?.bookingId });
     return updated;
   }

@@ -3,6 +3,7 @@ import Payment from '../models/Payment';
 import Gig from '../models/Gig';
 import Booking from '../models/Booking';
 import paymentsService from '../services/payments.service';
+import { logActivity } from '../utils/activityLogger';
 
 // Initialize a payment and return the gateway URL
 export const initPayment = async (req: Request, res: Response) => {
@@ -21,6 +22,10 @@ export const initPayment = async (req: Request, res: Response) => {
       studentName: (req.user as any)?.name,
       studentEmail: (req.user as any)?.email,
     });
+
+    try {
+      await logActivity({ userId: studentId, action: 'payment.init', targetType: 'Gig', targetId: gigId, metadata: { bookingId, url: result?.url }, req });
+    } catch {}
     return res.json({ success: true, ...result });
   } catch (error: any) {
     const errMsg = error?.response?.data?.failedreason || error?.message || 'Payment initialization failed';
@@ -38,6 +43,7 @@ export const successPayment = async (req: Request, res: Response) => {
     await paymentsService.handleSuccess(tran_id);
 
     const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+    try { await logActivity({ userId: (req as any)?.user?._id, action: 'payment.success', metadata: { tran_id }, req }); } catch {}
     return res.redirect(`${FRONTEND_URL}/payment-success?tran_id=${encodeURIComponent(tran_id)}`);
   } catch (error) {
     console.error('successPayment error:', error);
@@ -52,6 +58,7 @@ export const failPayment = async (req: Request, res: Response) => {
     await paymentsService.handleFailure(tran_id);
 
     const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+    try { await logActivity({ userId: (req as any)?.user?._id, action: 'payment.fail', metadata: { tran_id }, req }); } catch {}
     return res.redirect(`${FRONTEND_URL}/payment-failed`);
   } catch (error) {
     console.error('failPayment error:', error);
@@ -66,6 +73,7 @@ export const cancelPayment = async (req: Request, res: Response) => {
     await paymentsService.handleCancel(tran_id);
 
     const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+    try { await logActivity({ userId: (req as any)?.user?._id, action: 'payment.cancel', metadata: { tran_id }, req }); } catch {}
     return res.redirect(`${FRONTEND_URL}/payment-failed`);
   } catch (error) {
     console.error('cancelPayment error:', error);
@@ -77,6 +85,7 @@ export const cancelPayment = async (req: Request, res: Response) => {
 export const ipnListener = async (req: Request, res: Response) => {
   try {
     const status = await paymentsService.handleIPN(req.body);
+    try { await logActivity({ userId: null, action: 'payment.ipn', metadata: { status, body: req.body }, req }); } catch {}
     return res.status(200).json({ success: true, message: 'IPN received', status });
   } catch (error) {
     console.error('IPN error:', error);

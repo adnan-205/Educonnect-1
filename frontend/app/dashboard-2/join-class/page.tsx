@@ -183,20 +183,21 @@ export default function JoinClassPage() {
         }
     }
 
-    // Compute key timestamps for a booking
+    // Compute key timestamps for a booking with extended window
     const getTimes = (bk: Booking) => {
         const start = new Date(bk.scheduledAt || bk.scheduledDate).getTime()
         const durationMin = bk.gig?.duration || 90
-        const windowOpen = start - 2 * 60 * 1000 // opens 2 minutes before class start
+        const windowOpen = start - 15 * 60 * 1000 // opens 15 minutes before class start
         const end = start + durationMin * 60 * 1000
-        return { start, windowOpen, end, durationMin }
+        const windowClose = end + 60 * 60 * 1000 // closes 60 minutes after end
+        return { start, windowOpen, end, windowClose, durationMin }
     }
 
     // Determine whether the join window is before/open/after
     const getWindowState = (bk: Booking) => {
-        const { windowOpen, end } = getTimes(bk)
+        const { windowOpen, windowClose } = getTimes(bk)
         if (nowTs < windowOpen) return 'BEFORE' as const
-        if (nowTs > end) return 'AFTER' as const
+        if (nowTs > windowClose) return 'AFTER' as const
         return 'OPEN' as const
     }
 
@@ -209,8 +210,8 @@ export default function JoinClassPage() {
     }
 
     const isJoinEnabled = (bk: Booking) => {
-        const { windowOpen, end } = getTimes(bk)
-        const withinWindow = nowTs >= windowOpen && nowTs <= end
+        const { windowOpen, windowClose } = getTimes(bk)
+        const withinWindow = nowTs >= windowOpen && nowTs <= windowClose
         const paid = paidMap[bk._id] === true
         return withinWindow && paid
     }

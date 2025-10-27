@@ -14,6 +14,9 @@ import userRoutes from './routes/users';
 import uploadRoutes from './routes/uploads';
 import healthRoutes from './routes/health';
 import paymentRoutes from './routes/payments';
+import reviewRoutes from './routes/reviews';
+import walletRoutes from './routes/wallet';
+import adminRoutes from './routes/admin';
 
 // Load env vars
 dotenv.config();
@@ -162,6 +165,15 @@ app.get('/', (req, res) => {
         createBooking: 'POST /api/bookings',
         updateBookingStatus: 'PUT /api/bookings/:id'
       },
+      reviews: {
+        list: 'GET /api/reviews?gig=&teacher=&student=',
+        getOne: 'GET /api/reviews/:id',
+        updateOwn: 'PUT /api/reviews/:id',
+        delete: 'DELETE /api/reviews/:id',
+        listForGig: 'GET /api/gigs/:gigId/reviews',
+        getMyForGig: 'GET /api/gigs/:gigId/reviews/me',
+        createForGig: 'POST /api/gigs/:gigId/reviews'
+      },
       payments: {
         init: 'POST /api/payments/init',
         status: 'GET /api/payments/status/:gigId',
@@ -169,6 +181,15 @@ app.get('/', (req, res) => {
         fail: 'POST /api/payments/fail/:tran_id',
         cancel: 'POST /api/payments/cancel/:tran_id',
         ipn: 'POST /api/payments/ipn'
+      },
+      wallet: {
+        balance: 'GET /api/wallet/balance (Teacher)',
+        transactions: 'GET /api/wallet/transactions (Teacher)',
+        withdraw: 'POST /api/wallet/withdraw (Teacher)',
+        pendingWithdrawals: 'GET /api/wallet/admin/withdrawals/pending (Admin)',
+        approveWithdrawal: 'PUT /api/wallet/admin/withdrawals/:id/approve (Admin)',
+        rejectWithdrawal: 'PUT /api/wallet/admin/withdrawals/:id/reject (Admin)',
+        stats: 'GET /api/wallet/admin/stats (Admin)'
       }
     }
   });
@@ -185,6 +206,9 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Add error logging
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

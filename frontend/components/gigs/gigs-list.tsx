@@ -5,7 +5,8 @@ import { gigsApi } from '@/services/api';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Star } from 'lucide-react';
+import Link from 'next/link';
 
 interface Gig {
   _id: string;
@@ -15,6 +16,8 @@ interface Gig {
   category: string;
   duration: number;
   thumbnailUrl?: string;
+  averageRating?: number;
+  reviewsCount?: number;
   teacher: {
     name: string;
     email: string;
@@ -64,6 +67,12 @@ export default function GigsList() {
           <CardHeader>
             <h3 className="text-lg font-semibold">{gig.title}</h3>
             <p className="text-sm text-gray-500">by {gig.teacher.name}</p>
+            <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+              <span>{(gig.averageRating ?? 0).toFixed(1)} / 5</span>
+              <span className="text-gray-400">·</span>
+              <span>{gig.reviewsCount ?? 0} reviews</span>
+            </div>
           </CardHeader>
           <CardContent>
             <p className="text-sm mb-2">{gig.description}</p>
@@ -78,16 +87,16 @@ export default function GigsList() {
             </div>
           </CardContent>
           <CardFooter>
-            {user?.role === 'student' && (
-              <Button 
-                className="w-full"
-                onClick={() => {
-                  // Handle booking logic
-                }}
-              >
-                Book Now
-              </Button>
-            )}
+            <div className="grid grid-cols-2 gap-2 w-full">
+              <Link href={`/gigs/${gig._id}`} className="col-span-1">
+                <Button variant="outline" className="w-full">View Details</Button>
+              </Link>
+              {user?.role === 'student' && (
+                <Link href={`/book/${gig._id}`} className="col-span-1">
+                  <Button className="w-full">Book Now</Button>
+                </Link>
+              )}
+            </div>
           </CardFooter>
         </Card>
       ))}

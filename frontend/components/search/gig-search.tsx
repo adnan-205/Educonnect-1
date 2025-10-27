@@ -24,6 +24,8 @@ interface Gig {
     name: string
     avatar?: string
   }
+  averageRating?: number
+  reviewsCount?: number
 }
 
 interface GigSearchProps {
@@ -62,8 +64,8 @@ export function GigSearch({ className }: GigSearchProps) {
       const topic = selectedTopic.trim().toLowerCase()
       const okTopic = !topic || gig.title.toLowerCase().includes(topic) || gig.description.toLowerCase().includes(topic)
       const okPrice = !maxPrice || gig.price <= Number(maxPrice)
-      // minRating not available yet from backend; keep UI but ignore until implemented
-      const okRating = true
+      const min = Number(minRating)
+      const okRating = !minRating || (Number.isFinite(min) && (gig.averageRating ?? 0) >= min)
       return okSubject && okTopic && okPrice && okRating
     })
   }
@@ -242,6 +244,12 @@ export function GigSearch({ className }: GigSearchProps) {
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <h3 className="text-xl font-semibold mb-2">{gig.title}</h3>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                              <span>{(gig.averageRating ?? 0).toFixed(1)} / 5</span>
+                              <span className="text-gray-300">·</span>
+                              <span>{gig.reviewsCount ?? 0} reviews</span>
+                            </div>
                           </div>
                           <div className="text-right">
                             <div className="text-2xl font-bold text-primary">${gig.price}</div>
@@ -261,8 +269,13 @@ export function GigSearch({ className }: GigSearchProps) {
                           
                           <div className="flex gap-2">
                             <Button variant="outline" asChild>
-                              <Link href={`/teacher/${gig.teacher?._id}`}>
+                              <Link href={`/teachers/${gig.teacher?._id}`}>
                                 View Profile
+                              </Link>
+                            </Button>
+                            <Button variant="outline" asChild>
+                              <Link href={`/gigs/${gig._id}`}>
+                                View Details
                               </Link>
                             </Button>
                             <Button asChild>

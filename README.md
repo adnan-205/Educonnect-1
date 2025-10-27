@@ -224,6 +224,29 @@ npm start
 - [ ] Advanced search filters
 - [ ] Mobile app development
 
+## 🔒 Future Scalability: Self-Hosted Jitsi Setup
+
+Use this checklist when migrating from meet.jit.si to a self-hosted Jitsi with JWT and advanced moderation.
+
+- [ ] Install Jitsi via Docker (jitsi/docker-jitsi-meet)
+  - Configure `PUBLIC_URL`, TLS, and proper TURN/ICE (coturn) for NAT traversal
+- [ ] Enable JWT auth (Prosody/luajwtjitsi)
+  - Set `ENABLE_AUTH=1` and `AUTH_TYPE=jwt`
+  - Issue JWTs in backend on authorized joins (claims: aud, iss, sub, room, context.user)
+- [ ] Force lobby approval by default
+  - Set lobby to on; only moderators (teachers) can admit participants
+- [ ] Replace meet.jit.si with your domain
+  - Frontend `NEXT_PUBLIC_JITSI_DOMAIN=<your.domain>`
+  - Backend meeting links: `https://<your.domain>/<room>`
+- [ ] Add analytics/observability
+  - Enable callstats/jaas analytics or Grafana/Prometheus exporters
+  - Track join/leave, packet loss, bitrate for QoS
+- [ ] Security hardening
+  - Disable invite/add-people UI
+  - Enforce E2EE where possible; restrict non-authenticated rooms
+  - Rate-limit room creation and joining
+
+
 ## 🤝 Contributing
 
 1. Fork the repository

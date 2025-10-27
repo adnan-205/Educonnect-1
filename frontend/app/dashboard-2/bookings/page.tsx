@@ -145,7 +145,14 @@ export default function BookingsPage() {
     }, [])
 
     const startTime = (bk: any) => new Date(bk?.scheduledAt || bk?.scheduledDate).getTime()
-    const isJoinEnabled = (bk: any) => nowTs >= startTime(bk)
+    const isJoinEnabled = (bk: any) => {
+        const start = startTime(bk)
+        const durationMin = bk?.gig?.duration || 90
+        const windowOpen = start - 15 * 60 * 1000
+        const endTs = start + durationMin * 60 * 1000
+        const windowClose = endTs + 60 * 60 * 1000
+        return nowTs >= windowOpen && nowTs <= windowClose
+    }
     const formatDateTime = (bk: any) => {
         const d = new Date(bk?.scheduledAt || bk?.scheduledDate)
         return {

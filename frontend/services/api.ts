@@ -18,6 +18,170 @@ export const setAuthTokenProvider = (provider: TokenProvider) => {
   authTokenProvider = provider;
 };
 
+export const reviewsApi = {
+  getGigReviews: async (
+    gigId: string,
+    params?: { page?: number; limit?: number; sort?: string }
+  ) => {
+    try {
+      const response = await api.get(`/gigs/${encodeURIComponent(gigId)}/reviews`, { params });
+      return response.data; // { success, data: [...], total, totalPages, ... }
+    } catch (error) {
+      console.error(`Error fetching reviews for gig ${gigId}:`, error);
+      throw error;
+    }
+  },
+
+  getMyReviewForGig: async (gigId: string) => {
+    try {
+      const response = await api.get(`/gigs/${encodeURIComponent(gigId)}/reviews/me`);
+      return response.data; // { success, data: Review | null }
+    } catch (error) {
+      console.error(`Error fetching my review for gig ${gigId}:`, error);
+      throw error;
+    }
+  },
+
+  createReview: async (
+    gigId: string,
+    payload: { rating: number; title?: string; comment?: string }
+  ) => {
+    try {
+      const response = await api.post(`/gigs/${encodeURIComponent(gigId)}/reviews`, payload);
+      return response.data; // { success, data }
+    } catch (error) {
+      console.error(`Error creating review for gig ${gigId}:`, error);
+      throw error;
+    }
+  },
+};
+
+export const adminApi = {
+  listUsers: async (params?: { page?: number; limit?: number; q?: string; role?: 'student' | 'teacher' | 'admin'; isOnboarded?: 'true' | 'false'; }) => {
+    try {
+      const response = await api.get('/admin/users', { params });
+      return response.data; // { success, data: [...], totalPages, ... }
+    } catch (error) {
+      console.error('Error listing users (admin):', error);
+      throw error;
+    }
+  },
+
+  getUser: async (id: string) => {
+    try {
+      const response = await api.get(`/admin/users/${encodeURIComponent(id)}`);
+      return response.data; // { success, data }
+    } catch (error) {
+      console.error('Error fetching admin user:', error);
+      throw error;
+    }
+  },
+
+  listActivities: async (params?: { page?: number; limit?: number; userId?: string; action?: string; targetType?: string; from?: string; to?: string; }) => {
+    try {
+      const response = await api.get('/admin/activities', { params });
+      return response.data; // { success, data: [...], totalPages, ... }
+    } catch (error) {
+      console.error('Error listing activities (admin):', error);
+      throw error;
+    }
+  },
+
+  getUserActivities: async (userId: string, params?: { page?: number; limit?: number; action?: string; }) => {
+    try {
+      const response = await api.get(`/admin/users/${encodeURIComponent(userId)}/activities`, { params });
+      return response.data; // { success, data: [...], totalPages, ... }
+    } catch (error) {
+      console.error('Error fetching user activities (admin):', error);
+      throw error;
+    }
+  },
+
+  getClassAnalytics: async (params?: { from?: string; to?: string; teacherId?: string; status?: 'pending' | 'accepted' | 'rejected' | 'completed'; }) => {
+    try {
+      const response = await api.get('/admin/analytics/classes', { params });
+      return response.data; // { success, data: { summary, timeseries, topTeachers, revenue, range } }
+    } catch (error) {
+      console.error('Error fetching class analytics (admin):', error);
+      throw error;
+    }
+  },
+};
+
+export const walletAdminApi = {
+  getPending: async () => {
+    try {
+      const response = await api.get('/wallet/admin/withdrawals/pending');
+      return response.data; // { success, data: [...] }
+    } catch (error) {
+      console.error('Error fetching pending withdrawals:', error);
+      throw error;
+    }
+  },
+
+  approve: async (transactionId: string) => {
+    try {
+      const response = await api.put(`/wallet/admin/withdrawals/${encodeURIComponent(transactionId)}/approve`);
+      return response.data; // { success, data }
+    } catch (error) {
+      console.error('Error approving withdrawal:', error);
+      throw error;
+    }
+  },
+
+  reject: async (transactionId: string, reason: string) => {
+    try {
+      const response = await api.put(`/wallet/admin/withdrawals/${encodeURIComponent(transactionId)}/reject`, { reason });
+      return response.data; // { success, data }
+    } catch (error) {
+      console.error('Error rejecting withdrawal:', error);
+      throw error;
+    }
+  },
+
+  stats: async () => {
+    try {
+      const response = await api.get('/wallet/admin/stats');
+      return response.data; // { success, data }
+    } catch (error) {
+      console.error('Error fetching wallet stats:', error);
+      throw error;
+    }
+  },
+};
+
+export const walletApi = {
+  getSummary: async () => {
+    try {
+      const response = await api.get('/wallet/balance');
+      return response.data; // { success, data: { balance, totalEarned, ... } }
+    } catch (error) {
+      console.error('Error fetching wallet summary:', error);
+      throw error;
+    }
+  },
+
+  getTransactions: async (params?: { type?: 'CREDIT' | 'WITHDRAWAL'; status?: 'PENDING' | 'COMPLETED' | 'REJECTED' | 'CANCELLED'; limit?: number; skip?: number; }) => {
+    try {
+      const response = await api.get('/wallet/transactions', { params });
+      return response.data; // { success, data: [...], pagination: {...} }
+    } catch (error) {
+      console.error('Error fetching wallet transactions:', error);
+      throw error;
+    }
+  },
+
+  requestWithdrawal: async (payload: { amount: number; withdrawalMethod: 'BANK_TRANSFER' | 'MOBILE_BANKING' | 'PAYPAL' | 'OTHER'; withdrawalDetails?: Record<string, any>; }) => {
+    try {
+      const response = await api.post('/wallet/withdraw', payload);
+      return response.data; // { success, data: {...} }
+    } catch (error) {
+      console.error('Error requesting withdrawal:', error);
+      throw error;
+    }
+  },
+};
+
 export const usersApi = {
   getUser: async (id: string) => {
     try {
@@ -208,6 +372,23 @@ api.interceptors.response.use(
       data: response.data,
       headers: response.headers,
     });
+    try {
+      const url = response.config?.url || '';
+      if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/clerk-sync')) {
+        const data: any = response.data || {};
+        const user = data?.user;
+        const token = data?.token;
+        if (user) {
+          try { localStorage.setItem('user', JSON.stringify(user)); } catch {}
+          if (user.role) {
+            try { localStorage.setItem('role', user.role); } catch {}
+          }
+        }
+        if (token) {
+          try { localStorage.setItem('token', token); } catch {}
+        }
+      }
+    } catch {}
     return response;
   },
   (error: AxiosError) => {
@@ -222,10 +403,17 @@ api.interceptors.response.use(
           // Keep name optional
           return api.post('/auth/clerk-sync', { email })
             .then((res) => {
-              const token = (res?.data as any)?.token;
+              const data: any = res?.data || {};
+              const token = data?.token;
+              const user = data?.user;
+              if (user) {
+                try { localStorage.setItem('user', JSON.stringify(user)); } catch {}
+                if (user.role) {
+                  try { localStorage.setItem('role', user.role); } catch {}
+                }
+              }
               if (token) {
                 try { localStorage.setItem('token', token) } catch {}
-                // attach token and retry
                 cfg.headers = cfg.headers || {};
                 cfg.headers['Authorization'] = `Bearer ${token}`;
               }

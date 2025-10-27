@@ -81,6 +81,10 @@ const userSchema = new mongoose.Schema<IUser>({
   phone: { type: String },
   location: { type: String },
   headline: { type: String },
+  // Teacher rating aggregates
+  teacherRatingSum: { type: Number, default: 0 },
+  teacherReviewsCount: { type: Number, default: 0 },
+  teacherRatingAverage: { type: Number, default: 0, min: 0, max: 5 },
   avatar: {
     type: String,
   },
@@ -102,6 +106,11 @@ const userSchema = new mongoose.Schema<IUser>({
     hourlyRate: Number,
     availability: String,
     timezone: String,
+  },
+  // Wallet reference for teachers
+  wallet: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Wallet',
   },
 }, {
   timestamps: true,

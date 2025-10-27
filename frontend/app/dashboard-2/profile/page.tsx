@@ -72,7 +72,9 @@ export default function ProfilePage() {
                         hourlyRate: userData.profile?.hourlyRate,
                         availability: userData.profile?.availability || '',
                         timezone: userData.profile?.timezone || '',
-                        demoVideos: userData.profile?.demoVideos || []
+                        demoVideos: userData.profile?.demoVideos || [],
+                        rating: typeof userData.teacherRatingAverage === 'number' ? userData.teacherRatingAverage : 0,
+                        reviews: typeof userData.teacherReviewsCount === 'number' ? userData.teacherReviewsCount : 0,
                     })
                 }
             } catch (error) {

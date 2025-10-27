@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Gig from '../models/Gig';
 import Payment from '../models/Payment';
+import { logActivity } from '../utils/activityLogger';
 
 // Get all gigs
 export const getGigs = async (req: Request, res: Response) => {
@@ -79,6 +80,17 @@ export const createGig = async (req: Request, res: Response) => {
     if (thumbnailUrl) payload.thumbnailUrl = thumbnailUrl;
 
     const gig = await Gig.create(payload);
+
+    try {
+      await logActivity({
+        userId: (req as any)?.user?._id,
+        action: 'gig.create',
+        targetType: 'Gig',
+        targetId: gig._id,
+        metadata: { title: payload.title, price: payload.price, duration: payload.duration, category: payload.category },
+        req,
+      });
+    } catch {}
     res.status(201).json({
       success: true,
       data: gig,
@@ -117,11 +129,22 @@ export const updateGig = async (req: Request, res: Response) => {
       });
     }
 
-    gig = await Gig.findByIdAndUpdate(req.params.id, req.body, {
+    const updateDoc = req.body;
+    gig = await Gig.findByIdAndUpdate(req.params.id, updateDoc, {
       new: true,
       runValidators: true,
     });
 
+    try {
+      await logActivity({
+        userId: (req as any)?.user?._id,
+        action: 'gig.update',
+        targetType: 'Gig',
+        targetId: gig?._id,
+        metadata: { updateKeys: Object.keys(updateDoc || {}) },
+        req,
+      });
+    } catch {}
     res.json({
       success: true,
       data: gig,
@@ -154,6 +177,17 @@ export const deleteGig = async (req: Request, res: Response) => {
     }
 
     await gig.deleteOne();
+
+    try {
+      await logActivity({
+        userId: (req as any)?.user?._id,
+        action: 'gig.delete',
+        targetType: 'Gig',
+        targetId: gig._id,
+        metadata: { title: (gig as any)?.title },
+        req,
+      });
+    } catch {}
 
     res.json({
       success: true,

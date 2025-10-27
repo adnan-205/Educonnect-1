@@ -2,12 +2,20 @@ import { Request, Response } from 'express';
 import Booking from '../models/Booking';
 import Gig from '../models/Gig';
 import Payment from '../models/Payment';
+import { logActivity } from '../utils/activityLogger';
+import crypto from 'crypto';
 
-// Helper to generate a deterministic Jitsi room ID
+// Helper to slugify gig title
+const slugify = (title: string) => title
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/(^-|-$)+/g, '');
+
+// Helper to generate a secure Jitsi room ID: educonnect-{gigTitleSlug}-{bookingId}-{random16}
 const generateMeetingRoomId = (bookingId: string, gigTitle: string): string => {
-  const sanitizedTitle = gigTitle.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  const shortBookingId = bookingId.substring(0, 8);
-  return `educonnect-${sanitizedTitle}-${shortBookingId}`;
+  const slug = slugify(gigTitle || 'class');
+  const rand = crypto.randomBytes(8).toString('hex'); // 16 chars
+  return `educonnect-${slug}-${bookingId}-${rand}`;
 };
 
 // Mark student attendance for a booking
@@ -34,6 +42,22 @@ export const markAttendance = async (req: Request, res: Response) => {
     (booking as any).attendedAt = new Date();
     await booking.save();
 
+    await logActivity({
+      userId: (req as any)?.user?._id,
+      action: 'booking.attendance.marked',
+      targetType: 'Booking',
+      targetId: booking._id,
+      metadata: { bookingId: String(booking._id) },
+      req,
+    });
+    return res.json({
+      success: true,
+      data: {
+        bookingId: String(booking._id),
+        attended: (booking as any).attended === true,
+        attendedAt: (booking as any).attendedAt,
+      }
+    });
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Failed to mark attendance' });
   }
@@ -164,21 +188,22 @@ export const getBookingByRoom = async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: 'Booking is not accepted yet' });
     }
 
-    // Enforce join window timing: opens 2 minutes before start, closes after duration
+    // Enforce join window timing: opens 15 minutes before start, closes 60 minutes after end
     const scheduled = (booking as any).scheduledAt || (booking as any).scheduledDate;
     const startTs = new Date(scheduled).getTime();
     if (!startTs || isNaN(startTs)) {
       return res.status(400).json({ success: false, message: 'Invalid scheduled date/time for this booking' });
     }
     const durationMin = (booking as any).gig?.duration || 90;
-    const windowOpen = startTs - 2 * 60 * 1000;
+    const windowOpen = startTs - 15 * 60 * 1000; // 15 minutes before start
     const endTs = startTs + durationMin * 60 * 1000;
+    const windowClose = endTs + 60 * 60 * 1000; // 60 minutes after end
     const now = Date.now();
     if (now < windowOpen) {
       return res.status(403).json({ success: false, message: 'Join window not open yet' });
     }
-    if (now > endTs) {
-      return res.status(403).json({ success: false, message: 'Class has ended' });
+    if (now > windowClose) {
+      return res.status(403).json({ success: false, message: 'Join window has closed for this class' });
     }
 
     // Enforce per-booking payment for students before joining
@@ -189,7 +214,11 @@ export const getBookingByRoom = async (req: Request, res: Response) => {
       }
     }
 
-    return res.json({ success: true, data: booking });
+    // Include role hint and meeting password for client auto-lock/join
+    const obj = (booking as any).toObject ? (booking as any).toObject() : booking;
+    (obj as any).roleForThisBooking = isTeacher ? 'teacher' : 'student';
+    // meetingPassword is already included on the doc; ensure it is present for participants only
+    return res.json({ success: true, data: obj });
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Error validating meeting access' });
   }
@@ -241,6 +270,19 @@ export const createBooking = async (req: Request, res: Response) => {
 
     const booking = await Booking.create(req.body);
 
+    await logActivity({
+      userId: (req as any)?.user?._id,
+      action: 'booking.create',
+      targetType: 'Booking',
+      targetId: booking._id,
+      metadata: {
+        gig: String(req.body.gig),
+        scheduledAt: req.body.scheduledAt,
+        timeZone: req.body.timeZone,
+      },
+      req,
+    });
+
     res.status(201).json({
       success: true,
       data: booking,
@@ -275,6 +317,7 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
       });
     }
 
+    const prevStatus = (booking as any).status;
     booking.status = req.body.status;
 
     // If accepting and no meeting link yet, generate it
@@ -283,9 +326,28 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
       const meetingLink = generateMeetingLink(roomId);
       (booking as any).meetingRoomId = roomId;
       (booking as any).meetingLink = meetingLink;
+      // Optional meeting password for added security (default disabled to reduce friction)
+      const enablePassword = String(process.env.MEETING_PASSWORD_ENABLED || '').toLowerCase() === 'true';
+      if (enablePassword) {
+        (booking as any).meetingPassword = crypto.randomBytes(8).toString('hex');
+      }
+    }
+
+    // If class marked completed, expose review visibility
+    if (req.body.status === 'completed') {
+      (booking as any).reviewVisibility = true;
     }
 
     await booking.save();
+
+    await logActivity({
+      userId: (req as any)?.user?._id,
+      action: 'booking.updateStatus',
+      targetType: 'Booking',
+      targetId: booking._id,
+      metadata: { from: prevStatus, to: req.body.status },
+      req,
+    });
 
     // Populate with gig teacher and student for client convenience
     const populated = await Booking.findById(booking._id)

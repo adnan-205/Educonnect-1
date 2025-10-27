@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
+import { logActivity } from '../utils/activityLogger';
 
 // Helper function to generate JWT token
 const generateToken = (userId: string) => {
@@ -39,12 +40,26 @@ export const clerkSync = async (req: Request, res: Response) => {
       });
     }
 
+    // Promote to admin if email allowlisted
+    try {
+      const allow = (process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map(e => e.trim().toLowerCase())
+        .filter(Boolean);
+      if (email && allow.includes(email.toLowerCase()) && user.role !== 'admin') {
+        user.role = 'admin' as any;
+        await user.save();
+      }
+    } catch {}
+
     // Issue backend JWT
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET || 'devsecret',
       { expiresIn: process.env.JWT_EXPIRE || '30d' }
     );
+
+    await logActivity({ userId: (user as any)?._id, action: 'auth.clerkSync', metadata: { email }, req });
 
     res.json({
       success: true,
@@ -104,12 +119,38 @@ export const register = async (req: Request, res: Response) => {
       role,
     });
 
+    // Promote to admin if email allowlisted
+    try {
+      const allow = (process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+      if (email && allow.includes(email.toLowerCase()) && user.role !== 'admin') {
+        user.role = 'admin' as any;
+        await user.save();
+      }
+    } catch {}
+
+    // Promote to admin if email allowlisted
+    try {
+      const allow = (process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+      if (email && allow.includes(email.toLowerCase()) && user.role !== 'admin') {
+        user.role = 'admin' as any;
+        await (user as any).save?.();
+      }
+    } catch {}
+
     // Create token
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET || 'devsecret',
       { expiresIn: process.env.JWT_EXPIRE || '30d' }
     );
+
+    await logActivity({ userId: (user as any)?._id, action: 'auth.register', metadata: { role, email }, req });
 
     res.status(201).json({
       success: true,
@@ -154,6 +195,8 @@ export const updateRole = async (req: Request, res: Response) => {
         message: "User not found",
       });
     }
+
+    await logActivity({ userId: (req as any)?.user?._id, action: 'admin.updateRole', metadata: { email, role } , req });
 
     res.json({
       success: true,
@@ -210,6 +253,8 @@ export const login = async (req: Request, res: Response) => {
       process.env.JWT_SECRET || 'devsecret',
       { expiresIn: process.env.JWT_EXPIRE || '30d' }
     );
+
+    await logActivity({ userId: (user as any)?._id, action: 'auth.login', metadata: { email }, req });
 
     res.json({
       success: true,

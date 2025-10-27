@@ -1,12 +1,13 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import Gig from '../models/Gig';
+import { logActivity } from '../utils/activityLogger';
 
 // GET /api/users/:id - public profile basics
 export const getUser = async (req: Request, res: Response) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('name email role profile createdAt avatar coverImage phone location headline');
+      .select('name email role profile createdAt avatar coverImage phone location headline teacherRatingAverage teacherReviewsCount');
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -27,7 +28,7 @@ export const getUserGigs = async (req: Request, res: Response) => {
     }
 
     const gigs = await Gig.find({ teacher: user._id })
-      .select('title price category duration thumbnailUrl createdAt');
+      .select('title price category duration thumbnailUrl createdAt averageRating reviewsCount');
 
     res.json({ success: true, count: gigs.length, data: gigs });
   } catch (err) {
@@ -80,6 +81,17 @@ export const updateMe = async (req: Request, res: Response) => {
 
     const updated = await User.findByIdAndUpdate(userId, { $set: patch }, { new: true })
       .select('name email role isOnboarded marketingSource profile avatar coverImage phone location headline');
+
+    try {
+      await logActivity({
+        userId,
+        action: 'user.updateMe',
+        targetType: 'User',
+        targetId: userId,
+        metadata: { changedKeys: Object.keys(patch) },
+        req,
+      });
+    } catch {}
 
     res.json({ success: true, data: updated });
   } catch (err) {

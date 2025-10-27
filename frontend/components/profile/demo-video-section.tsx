@@ -420,8 +420,8 @@ export function DemoVideoSection({ videos, onUpdate, isEditable = true }: DemoVi
                     </div>
                 ) : (
                     <div className="grid gap-4">
-                        {videos.map((video) => (
-                            <div key={video.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                        {videos.map((video, idx) => (
+                            <div key={video.cloudinaryPublicId || video.id || `${video.videoUrl}-${idx}`} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                                 <div className="flex items-start gap-4">
                                     {/* Video Thumbnail */}
                                     <div className="relative flex-shrink-0">

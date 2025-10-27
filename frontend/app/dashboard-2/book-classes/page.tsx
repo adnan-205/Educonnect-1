@@ -30,13 +30,13 @@ interface Gig {
     category: string
     price: number
     duration: number
+    averageRating?: number
+    reviewsCount?: number
     teacher: {
         _id: string
         name: string
         email: string
         profileImage?: string
-        rating?: number
-        totalReviews?: number
     }
     tags?: string[]
     createdAt: string
@@ -214,8 +214,8 @@ export default function BookClassesPage() {
                                     </Badge>
                                     <div className="flex items-center gap-1 text-sm text-yellow-600">
                                         <Star className="h-4 w-4 fill-current" />
-                                        <span>{gig.teacher.rating || 4.8}</span>
-                                        <span className="text-gray-500">({gig.teacher.totalReviews || 12})</span>
+                                        <span>{(gig.averageRating ?? 0).toFixed(1)}</span>
+                                        <span className="text-gray-500">({gig.reviewsCount ?? 0})</span>
                                     </div>
                                 </div>
                                 <CardTitle className="text-lg leading-tight">{gig.title}</CardTitle>
@@ -227,7 +227,7 @@ export default function BookClassesPage() {
                                 {/* Teacher Info */}
                                 <div className="flex items-center gap-3">
                                     <Avatar className="h-8 w-8">
-                                        <AvatarImage src={gig.teacher.avatar || gig.teacher.profileImage} />
+                                        <AvatarImage src={gig.teacher.profileImage} />
                                         <AvatarFallback className="text-xs">
                                             {gig.teacher.name.split(' ').map(n => n[0]).join('')}
                                         </AvatarFallback>
@@ -236,7 +236,7 @@ export default function BookClassesPage() {
                                         <p className="font-medium text-sm">{gig.teacher.name}</p>
                                         <p className="text-xs text-gray-500">Expert Teacher</p>
                                         <div className="mt-1">
-                                            <Link href={`/teacher/${gig.teacher._id}/profile`} className="text-xs text-blue-600 hover:underline">
+                                            <Link href={`/teachers/${gig.teacher._id}`} className="text-xs text-blue-600 hover:underline">
                                                 View Full Profile
                                             </Link>
                                         </div>
@@ -282,10 +282,15 @@ export default function BookClassesPage() {
                                         <span className="text-lg font-bold text-green-600">${gig.price}</span>
                                         <span className="text-sm text-gray-500">/ session</span>
                                     </div>
-                                    <Button onClick={() => handleBookClass(gig._id)} className="flex items-center gap-2">
-                                        <Calendar className="h-4 w-4" />
-                                        Book Now
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Link href={`/gigs/${gig._id}`} className="hidden sm:block">
+                                            <Button variant="outline">View Details</Button>
+                                        </Link>
+                                        <Button onClick={() => handleBookClass(gig._id)} className="flex items-center gap-2">
+                                            <Calendar className="h-4 w-4" />
+                                            Book Now
+                                        </Button>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>

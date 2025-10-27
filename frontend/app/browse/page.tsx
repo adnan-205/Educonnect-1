@@ -243,7 +243,7 @@ export default function BrowsePage() {
                                         Created: {new Date(gig.createdAt).toLocaleDateString()}
                                     </div>
                                     <div className="flex gap-2">
-                                        <Link href={`/teacher/${gig.teacher._id}`}>
+                                        <Link href={`/teachers/${gig.teacher._id}`}>
                                             <Button variant="outline" size="sm">View Profile</Button>
                                         </Link>
                                         <Link href={`/book/${gig._id}`}>

@@ -11,6 +11,8 @@ export interface JitsiMeetingProps {
   onMeetingJoined?: () => void;
   onMeetingEnd?: () => void; // fires after hangup/close
   className?: string;
+  roleForThisBooking?: 'teacher' | 'student';
+  meetingPassword?: string;
 }
 
 declare global {
@@ -27,6 +29,8 @@ export default function JitsiMeeting({
   onMeetingJoined,
   onMeetingEnd,
   className = "",
+  roleForThisBooking,
+  meetingPassword,
 }: JitsiMeetingProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [api, setApi] = useState<any>(null);
@@ -34,26 +38,40 @@ export default function JitsiMeeting({
   const [error, setError] = useState<string | null>(null);
   const endTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const joinedRef = useRef<boolean>(false);
+  const instanceRef = useRef<any>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const domain = process.env.NEXT_PUBLIC_JITSI_DOMAIN || "meet.jit.si";
+    const raw = process.env.NEXT_PUBLIC_JITSI_DOMAIN || "meet.jit.si";
+    const sanitized = raw.replace(/^https?:\/\//, '').replace(/\/+$/, '');
     const isLocal =
-      domain === "localhost" ||
-      domain === "127.0.0.1" ||
-      domain.startsWith("192.168.") ||
-      domain.startsWith("10.");
+      sanitized === "localhost" ||
+      sanitized === "127.0.0.1" ||
+      sanitized.startsWith("192.168.") ||
+      sanitized.startsWith("10.");
     const scheme = isLocal ? "http" : "https";
+    let chosenDomain = sanitized;
 
     const loadScript = () =>
       new Promise<void>((resolve, reject) => {
         if ((window as any).JitsiMeetExternalAPI) return resolve();
-        const script = document.createElement("script");
-        script.src = `${scheme}://${domain}/external_api.js`;
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("Failed to load Jitsi API"));
-        document.head.appendChild(script);
+        const primary = document.createElement("script");
+        primary.src = `${scheme}://${sanitized}/external_api.js`;
+        primary.async = true;
+        primary.onload = () => resolve();
+        primary.onerror = () => {
+          if (sanitized !== 'meet.jit.si') {
+            const fallback = document.createElement("script");
+            fallback.src = `https://meet.jit.si/external_api.js`;
+            fallback.async = true;
+            fallback.onload = () => { chosenDomain = 'meet.jit.si'; resolve(); };
+            fallback.onerror = () => reject(new Error("Failed to load Jitsi API"));
+            document.head.appendChild(fallback);
+          } else {
+            reject(new Error("Failed to load Jitsi API"));
+          }
+        };
+        document.head.appendChild(primary);
       });
 
     const init = async () => {
@@ -62,6 +80,29 @@ export default function JitsiMeeting({
         setError(null);
         await loadScript();
         if (!containerRef.current) throw new Error("Container not found");
+
+        // Dispose any previous instance and clear container to avoid duplicates
+        try { instanceRef.current?.dispose?.(); } catch (_) {}
+        try { api?.dispose?.(); } catch (_) {}
+        setApi(null);
+        try { if (containerRef.current) containerRef.current.innerHTML = ''; } catch (_) {}
+
+        // Toolbar settings: always hide invite; students get a limited toolbar
+        const baseToolbarButtons: string[] = [
+          'microphone',
+          'camera',
+          'chat',
+          'raisehand',
+          'hangup',
+        ];
+        const teacherToolbarButtons: string[] = [
+          // exclude 'invite' deliberately
+          'microphone', 'camera', 'desktop', 'fullcreen', 'fodeviceselection',
+          'hangup', 'chat', 'etherpad', 'shareaudio', 'toggle-camera', 'highlight',
+          'select-background', 'mute-everyone', 'mute-video-everyone', 'security', 'raisehand'
+        ].filter(btn => btn !== 'invite' && btn !== 'add-people');
+
+        const toolbarButtons = (roleForThisBooking === 'teacher') ? teacherToolbarButtons : baseToolbarButtons;
 
         const options: any = {
           roomName: roomId,
@@ -80,6 +121,8 @@ export default function JitsiMeeting({
             enableWelcomePage: false,
             startWithAudioMuted: false,
             startWithVideoMuted: false,
+            disableInviteFunctions: true,
+            disableSelfView: true,
           },
           interfaceConfigOverwrite: {
             DISPLAY_WELCOME_PAGE_CONTENT: false,
@@ -88,24 +131,40 @@ export default function JitsiMeeting({
             SHOW_JITSI_WATERMARK: false,
             SHOW_WATERMARK_FOR_GUESTS: false,
           },
+          toolbarButtons,
         };
 
-        const apiInstance = new (window as any).JitsiMeetExternalAPI(domain, options);
+        const apiInstance = new (window as any).JitsiMeetExternalAPI(chosenDomain, options);
         setApi(apiInstance);
+        instanceRef.current = apiInstance;
 
         apiInstance.addEventListener("videoConferenceJoined", () => {
           setIsLoading(false);
           joinedRef.current = true;
           onMeetingJoined?.();
-          // Auto-end after N minutes from actual join
-          const ms = Math.max(1, endAfterMinutes) * 60 * 1000;
-          endTimerRef.current = setTimeout(() => {
-            try {
-              apiInstance.executeCommand("hangup");
-            } catch (_) {
-              // ignore
-            }
-          }, ms);
+          // Auto-apply meeting password if teacher (moderator)
+          if (roleForThisBooking === 'teacher' && meetingPassword) {
+            try { apiInstance.executeCommand('password', meetingPassword); } catch (_) {}
+          }
+          // Optional auto-end after N minutes from actual join
+          const autoEndDisabled = process.env.NEXT_PUBLIC_JITSI_AUTO_END_DISABLED === 'true';
+          if (!autoEndDisabled) {
+            const ms = Math.max(1, endAfterMinutes) * 60 * 1000;
+            endTimerRef.current = setTimeout(() => {
+              try {
+                apiInstance.executeCommand("hangup");
+              } catch (_) {
+                // ignore
+              }
+            }, ms);
+          }
+        });
+
+        // Student: auto-submit password when required (if teacher has set one)
+        apiInstance.addEventListener('passwordRequired', () => {
+          if (meetingPassword) {
+            try { apiInstance.executeCommand('password', meetingPassword); } catch (_) {}
+          }
         });
 
         const handleClose = () => {
@@ -139,9 +198,10 @@ export default function JitsiMeeting({
 
     return () => {
       if (endTimerRef.current) clearTimeout(endTimerRef.current);
-      try {
-        api?.dispose?.();
-      } catch (_) {}
+      try { instanceRef.current?.dispose?.(); } catch (_) {}
+      try { api?.dispose?.(); } catch (_) {}
+      instanceRef.current = null;
+      try { if (containerRef.current) containerRef.current.innerHTML = ''; } catch (_) {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);

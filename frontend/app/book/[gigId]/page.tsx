@@ -131,7 +131,7 @@ export default function BookGigPage() {
               <Clock className="h-4 w-4" /> <span>Duration: {gig.duration} min • ${gig.price}/hr</span>
             </div>
             <div className="pt-2">
-              <Link href={`/teacher/${gig.teacher._id}/profile`}>
+              <Link href={`/teachers/${gig.teacher._id}`}>
                 <Button size="sm" variant="outline" className="gap-2">
                   <User className="h-4 w-4" /> View Full Profile
                 </Button>

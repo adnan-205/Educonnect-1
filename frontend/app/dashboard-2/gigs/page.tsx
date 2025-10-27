@@ -138,6 +138,12 @@ export default function GigsPage() {
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         <CardTitle className="text-lg mb-2">{gig.title}</CardTitle>
+                                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                                            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                                            <span>{(gig.averageRating ?? 0).toFixed(1)} / 5</span>
+                                            <span className="text-gray-300">·</span>
+                                            <span>{gig.reviewsCount ?? 0} reviews</span>
+                                        </div>
                                         <Badge className={getStatusColor(gig.status || "active")}>
                                             {gig.status || "active"}
                                         </Badge>
@@ -202,7 +208,7 @@ export default function GigsPage() {
                                     <div className="flex items-center justify-between text-sm text-gray-500">
                                         <span>Created {new Date(gig.createdAt).toLocaleDateString()}</span>
                                         <Link 
-                                            href={`/book/${gig._id}`}
+                                            href={`/gigs/${gig._id}`}
                                             className="text-blue-600 hover:text-blue-700 font-medium"
                                         >
                                             View Details

@@ -45,6 +45,11 @@ const bookingSchema = new mongoose.Schema<IBooking>({
     type: String,
     required: false,
   },
+  meetingPassword: {
+    type: String,
+    required: false,
+    select: true,
+  },
   // Attendance tracking (student)
   attended: {
     type: Boolean,
@@ -55,6 +60,29 @@ const bookingSchema = new mongoose.Schema<IBooking>({
   attendedAt: {
     type: Date,
     required: false,
+  },
+  // Rating & review snapshot fields (for quick access per booking)
+  teacherRating: {
+    type: Number,
+    min: 1,
+    max: 5,
+    required: false,
+  },
+  studentRating: {
+    type: Number,
+    min: 1,
+    max: 5,
+    required: false,
+  },
+  reviewComment: {
+    type: String,
+    maxlength: 2000,
+    required: false,
+  },
+  reviewVisibility: {
+    type: Boolean,
+    default: false,
+    index: true,
   },
 }, {
   timestamps: true,

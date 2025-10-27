@@ -8,6 +8,7 @@ import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { bookingsApi } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function VideoCallPage() {
   const params = useParams<{ roomId: string }>();
@@ -30,6 +31,9 @@ export default function VideoCallPage() {
   const [verifying, setVerifying] = useState(true);
   const [deniedMsg, setDeniedMsg] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [roleForThisBooking, setRoleForThisBooking] = useState<'teacher' | 'student' | null>(null);
+  const [meetingPassword, setMeetingPassword] = useState<string | undefined>(undefined);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!roomId) {
@@ -43,14 +47,21 @@ export default function VideoCallPage() {
         setDeniedMsg(null);
         const result = await bookingsApi.getByRoom(roomId);
         const bk = (result && (result.data || result)) as any;
-        const id = bk?.data?._id || bk?._id || null;
+        const data = bk?.data || bk;
+        const id = data?._id || null;
         if (id) setBookingId(id);
+        const role = data?.roleForThisBooking;
+        if (role === 'teacher' || role === 'student') setRoleForThisBooking(role);
+        if (data?.meetingPassword) setMeetingPassword(data.meetingPassword);
         setVerifying(false);
       } catch (e: any) {
         setVerifying(false);
         const status = e?.response?.status;
         const msg = e?.response?.data?.message || e?.message;
         setDeniedMsg(msg || null);
+        if (msg) {
+          toast({ title: 'Unable to join', description: msg, variant: 'destructive' });
+        }
         if (status === 402) {
           // Payment required
           router.replace("/dashboard-2/bookings?pay=required");
@@ -64,9 +75,9 @@ export default function VideoCallPage() {
   }, [roomId, router]);
 
   const onJoined = async () => {
-    // Best-effort attendance marking for students; backend enforces permission
+    // Best-effort attendance marking only for students; backend also enforces
     try {
-      if (bookingId) {
+      if (bookingId && roleForThisBooking === 'student') {
         await bookingsApi.markAttendance(bookingId);
       }
     } catch (_) {
@@ -97,6 +108,8 @@ export default function VideoCallPage() {
             userEmail={user?.primaryEmailAddress?.emailAddress}
             endAfterMinutes={endAfterMinutes}
             onMeetingJoined={onJoined}
+            roleForThisBooking={roleForThisBooking || undefined}
+            meetingPassword={meetingPassword}
           />
           )}
         </CardContent>

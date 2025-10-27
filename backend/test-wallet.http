@@ -1,0 +1,219 @@
+### EduConnect Wallet System API Tests
+### Use with REST Client extension in VS Code or similar tools
+
+@baseUrl = http://localhost:5000
+@teacherToken = YOUR_TEACHER_JWT_TOKEN_HERE
+@adminToken = YOUR_ADMIN_JWT_TOKEN_HERE
+
+### ============================================
+### TEACHER ENDPOINTS
+### ============================================
+
+### 1. Get Wallet Balance
+GET {{baseUrl}}/api/wallet/balance
+Authorization: Bearer {{teacherToken}}
+
+### 2. Get All Transactions
+GET {{baseUrl}}/api/wallet/transactions
+Authorization: Bearer {{teacherToken}}
+
+### 3. Get Credit Transactions Only
+GET {{baseUrl}}/api/wallet/transactions?type=CREDIT
+Authorization: Bearer {{teacherToken}}
+
+### 4. Get Withdrawal Transactions Only
+GET {{baseUrl}}/api/wallet/transactions?type=WITHDRAWAL
+Authorization: Bearer {{teacherToken}}
+
+### 5. Get Completed Transactions
+GET {{baseUrl}}/api/wallet/transactions?status=COMPLETED
+Authorization: Bearer {{teacherToken}}
+
+### 6. Get Pending Withdrawals
+GET {{baseUrl}}/api/wallet/transactions?type=WITHDRAWAL&status=PENDING
+Authorization: Bearer {{teacherToken}}
+
+### 7. Get Paginated Transactions
+GET {{baseUrl}}/api/wallet/transactions?limit=10&skip=0
+Authorization: Bearer {{teacherToken}}
+
+### 8. Request Bank Transfer Withdrawal
+POST {{baseUrl}}/api/wallet/withdraw
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "amount": 500,
+  "withdrawalMethod": "BANK_TRANSFER",
+  "withdrawalDetails": {
+    "accountNumber": "1234567890123456",
+    "accountName": "John Doe",
+    "bankName": "Dutch Bangla Bank",
+    "branchName": "Gulshan Branch",
+    "routingNumber": "090271234"
+  }
+}
+
+### 9. Request Mobile Banking Withdrawal (bKash)
+POST {{baseUrl}}/api/wallet/withdraw
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "amount": 1000,
+  "withdrawalMethod": "MOBILE_BANKING",
+  "withdrawalDetails": {
+    "mobileNumber": "+8801711111111",
+    "accountName": "John Doe",
+    "provider": "bKash"
+  }
+}
+
+### 10. Request PayPal Withdrawal
+POST {{baseUrl}}/api/wallet/withdraw
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "amount": 2000,
+  "withdrawalMethod": "PAYPAL",
+  "withdrawalDetails": {
+    "email": "john.doe@example.com",
+    "accountName": "John Doe"
+  }
+}
+
+### ============================================
+### ADMIN ENDPOINTS
+### ============================================
+
+### 11. Get All Pending Withdrawals
+GET {{baseUrl}}/api/wallet/admin/withdrawals/pending
+Authorization: Bearer {{adminToken}}
+
+### 12. Get Pending Withdrawals with Pagination
+GET {{baseUrl}}/api/wallet/admin/withdrawals/pending?limit=20&skip=0
+Authorization: Bearer {{adminToken}}
+
+### 13. Approve Withdrawal (Replace :transactionId with actual ID)
+PUT {{baseUrl}}/api/wallet/admin/withdrawals/65abc123def456789/approve
+Authorization: Bearer {{adminToken}}
+
+### 14. Reject Withdrawal (Replace :transactionId with actual ID)
+PUT {{baseUrl}}/api/wallet/admin/withdrawals/65abc123def456789/reject
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Bank account details do not match the registered name. Please provide correct information and resubmit."
+}
+
+### 15. Get Wallet Statistics
+GET {{baseUrl}}/api/wallet/admin/stats
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### ERROR SCENARIOS (for testing validation)
+### ============================================
+
+### 16. Withdrawal with Negative Amount (Should Fail)
+POST {{baseUrl}}/api/wallet/withdraw
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "amount": -500,
+  "withdrawalMethod": "BANK_TRANSFER",
+  "withdrawalDetails": {
+    "accountNumber": "1234567890"
+  }
+}
+
+### 17. Withdrawal with Invalid Method (Should Fail)
+POST {{baseUrl}}/api/wallet/withdraw
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "amount": 500,
+  "withdrawalMethod": "INVALID_METHOD",
+  "withdrawalDetails": {}
+}
+
+### 18. Withdrawal without Details (Should Fail)
+POST {{baseUrl}}/api/wallet/withdraw
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "amount": 500,
+  "withdrawalMethod": "BANK_TRANSFER"
+}
+
+### 19. Reject without Reason (Should Fail)
+PUT {{baseUrl}}/api/wallet/admin/withdrawals/65abc123def456789/reject
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": ""
+}
+
+### 20. Reject with Short Reason (Should Fail - min 10 chars)
+PUT {{baseUrl}}/api/wallet/admin/withdrawals/65abc123def456789/reject
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Too short"
+}
+
+### ============================================
+### UNAUTHORIZED ACCESS TESTS
+### ============================================
+
+### 21. Teacher Accessing Admin Endpoint (Should Fail)
+GET {{baseUrl}}/api/wallet/admin/withdrawals/pending
+Authorization: Bearer {{teacherToken}}
+
+### 22. No Authorization Token (Should Fail)
+GET {{baseUrl}}/api/wallet/balance
+
+### ============================================
+### INTEGRATION TEST FLOW
+### ============================================
+
+### Step 1: Check Initial Balance
+GET {{baseUrl}}/api/wallet/balance
+Authorization: Bearer {{teacherToken}}
+
+### Step 2: Request Withdrawal
+POST {{baseUrl}}/api/wallet/withdraw
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "amount": 500,
+  "withdrawalMethod": "BANK_TRANSFER",
+  "withdrawalDetails": {
+    "accountNumber": "1234567890",
+    "accountName": "Test User",
+    "bankName": "Test Bank"
+  }
+}
+
+### Step 3: Admin Views Pending
+GET {{baseUrl}}/api/wallet/admin/withdrawals/pending
+Authorization: Bearer {{adminToken}}
+
+### Step 4: Admin Approves (Use ID from Step 3)
+# PUT {{baseUrl}}/api/wallet/admin/withdrawals/TRANSACTION_ID_HERE/approve
+# Authorization: Bearer {{adminToken}}
+
+### Step 5: Check Balance After Approval
+GET {{baseUrl}}/api/wallet/balance
+Authorization: Bearer {{teacherToken}}
+
+### Step 6: View Transaction History
+GET {{baseUrl}}/api/wallet/transactions
+Authorization: Bearer {{teacherToken}}
