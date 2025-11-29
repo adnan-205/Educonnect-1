@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useUser } from "@clerk/nextjs"
 import { usersApi } from "@/services/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,8 +14,8 @@ import { useToast } from "@/hooks/use-toast"
 export default function OnboardingPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [name, setName] = useState("")
-  const [role, setRole] = useState<"student" | "teacher" | "admin" | "">("")
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser()
+  const [role, setRole] = useState<"student" | "teacher" | "">("")
   const [marketingSource, setMarketingSource] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -24,12 +25,11 @@ export default function OnboardingPage() {
       const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null
       if (userStr) {
         const u = JSON.parse(userStr)
-        if (u?.name) setName(u.name)
         if (u?.role) setRole(u.role)
         if (u?.marketingSource) setMarketingSource(u.marketingSource)
         if (u?.isOnboarded) {
           // If already onboarded, go to dashboard
-          router.replace("/dashboard-2")
+          router.replace("/dashboard")
         }
       }
     } catch {}
@@ -37,10 +37,18 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name || !role) {
-      toast({ title: "Missing info", description: "Please provide your full name and role.", variant: "destructive" })
+    if (!role) {
+      toast({ title: "Missing info", description: "Please select your role.", variant: "destructive" })
       return
     }
+    
+    // Get name from Clerk user
+    const name = clerkUser?.fullName || clerkUser?.firstName || clerkUser?.username || ""
+    if (!name) {
+      toast({ title: "Missing info", description: "Please ensure your name is set in your account.", variant: "destructive" })
+      return
+    }
+    
     try {
       setLoading(true)
       const payload: any = { name, role, marketingSource, isOnboarded: true }
@@ -58,7 +66,7 @@ export default function OnboardingPage() {
         }))
         localStorage.setItem("role", updated.role)
         toast({ title: "Welcome!", description: "Your profile has been updated." })
-        router.replace("/dashboard-2")
+        router.replace("/dashboard")
       } else {
         throw new Error("No response")
       }
@@ -71,43 +79,55 @@ export default function OnboardingPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <Card className="bg-white shadow-sm border-0">
+      <Card>
         <CardHeader>
           <CardTitle>Complete your profile</CardTitle>
-          <p className="text-sm text-gray-600 mt-1">We need a few details to personalize your experience.</p>
+          <p className="text-sm text-muted-foreground mt-1">We need a few details to personalize your experience.</p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" />
-            </div>
+          {!clerkLoaded ? (
+            <div className="text-center py-8">Loading...</div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {clerkUser && (
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Name from your account:</p>
+                  <p className="font-semibold text-foreground">
+                    {clerkUser.fullName || clerkUser.firstName || clerkUser.username || "Not set"}
+                  </p>
+                  {!clerkUser.fullName && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Update your name in your account settings if needed.
+                    </p>
+                  )}
+                </div>
+              )}
 
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select value={role} onValueChange={(v) => setRole(v as any)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="teacher">Teacher</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={role} onValueChange={(v) => setRole(v as any)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">Student</SelectItem>
+                    <SelectItem value="teacher">Teacher</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
             <div className="space-y-2">
               <Label htmlFor="source">Where did you hear about us?</Label>
               <Input id="source" value={marketingSource} onChange={(e) => setMarketingSource(e.target.value)} placeholder="Google, Friend, Social Media, etc." />
             </div>
 
-            <div className="pt-2">
-              <Button type="submit" disabled={loading} className="w-full">
-                {loading ? "Saving..." : "Continue to Dashboard"}
-              </Button>
-            </div>
-          </form>
+              <div className="pt-2">
+                <Button type="submit" disabled={loading || !clerkUser} className="w-full">
+                  {loading ? "Saving..." : "Continue to Dashboard"}
+                </Button>
+              </div>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

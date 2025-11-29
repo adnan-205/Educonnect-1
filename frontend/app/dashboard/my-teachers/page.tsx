@@ -67,11 +67,11 @@ export default function MyTeachersPage() {
 
             // Group bookings by teacher
             const teacherMap = new Map<string, any>()
-            
+
             for (const booking of bookings) {
                 const teacherId = booking.gig?.teacher?._id
                 if (!teacherId) continue
-                
+
                 if (!teacherMap.has(teacherId)) {
                     teacherMap.set(teacherId, {
                         teacher: booking.gig.teacher,
@@ -83,14 +83,14 @@ export default function MyTeachersPage() {
                         bookings: []
                     })
                 }
-                
+
                 const teacherData = teacherMap.get(teacherId)
                 teacherData.totalBookings++
                 teacherData.bookings.push(booking)
-                
+
                 const classDate = new Date(booking.scheduledDate)
                 const now = new Date()
-                
+
                 if (booking.status === "completed") {
                     teacherData.completedClasses++
                     if (!teacherData.lastClassDate || classDate > new Date(teacherData.lastClassDate)) {
@@ -111,7 +111,7 @@ export default function MyTeachersPage() {
                     // Try to get more detailed teacher info
                     const teacherResponse = await usersApi.getUser(teacherId)
                     const detailedTeacher = teacherResponse.data
-                    
+
                     teacherRelations.push({
                         teacher: {
                             ...data.teacher,
@@ -168,7 +168,7 @@ export default function MyTeachersPage() {
             filtered = filtered.filter(relation =>
                 relation.teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 relation.teacher.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                relation.teacher.subjects?.some(subject => 
+                relation.teacher.subjects?.some(subject =>
                     subject.toLowerCase().includes(searchTerm.toLowerCase())
                 )
             )
@@ -231,7 +231,7 @@ export default function MyTeachersPage() {
                         <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">No teachers found</h3>
                         <p className="text-gray-600 mb-4">
-                            {teachers.length === 0 
+                            {teachers.length === 0
                                 ? "You haven't taken any classes yet. Book your first class to start learning!"
                                 : "No teachers match your search criteria."
                             }
@@ -256,7 +256,7 @@ export default function MyTeachersPage() {
                                             {relation.teacher.name.split(' ').map(n => n[0]).join('')}
                                         </AvatarFallback>
                                     </Avatar>
-                                    
+
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between">
                                             <div>
@@ -271,7 +271,7 @@ export default function MyTeachersPage() {
                                                 <span className="text-gray-500">({relation.teacher.totalReviews})</span>
                                             </div>
                                         </div>
-                                        
+
                                         {relation.teacher.subjects && (
                                             <div className="flex flex-wrap gap-1 mt-2">
                                                 {relation.teacher.subjects.slice(0, 3).map((subject, index) => (
@@ -289,7 +289,7 @@ export default function MyTeachersPage() {
                                     </div>
                                 </div>
                             </CardHeader>
-                            
+
                             <CardContent className="space-y-4">
                                 {/* Stats */}
                                 <div className="grid grid-cols-3 gap-4 text-center">

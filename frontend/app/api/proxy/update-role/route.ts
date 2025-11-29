@@ -7,9 +7,9 @@ export async function POST(request: Request) {
     const email = body?.email as string | undefined;
     const role = body?.role as string | undefined;
 
-    if (!email || !role || !["student", "teacher", "admin"].includes(role)) {
+    if (!email || !role || !["student", "teacher"].includes(role)) {
       return NextResponse.json(
-        { success: false, message: "Invalid email or role" },
+        { success: false, message: "Invalid email or role. Only 'student' or 'teacher' roles are allowed." },
         { status: 400 }
       );
     }

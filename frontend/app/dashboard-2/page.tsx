@@ -8,32 +8,17 @@ import { useToast } from "@/hooks/use-toast"
 import { Calendar, Users, Clock, Star } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-
-// Mock data for demonstration
-const upcomingClasses = [
-    {
-        id: 1,
-        teacher: "Sarah Johnson",
-        subject: "Calculus",
-        time: "Today, 2:00 PM",
-        duration: "60 min",
-        avatar: "/placeholder.jpg"
-    },
-    {
-        id: 2,
-        teacher: "David Chen",
-        subject: "Python Programming",
-        time: "Tomorrow, 10:00 AM",
-        duration: "90 min",
-        avatar: "/placeholder.jpg"
-    }
-]
+import { useUser } from "@clerk/nextjs"
 
 export default function DashboardPage() {
     const [role, setRole] = useState<"student" | "teacher" | "admin" | null>(null)
     const [studentBookings, setStudentBookings] = useState<any[]>([])
+    const [teacherBookings, setTeacherBookings] = useState<any[]>([])
+    const [allBookings, setAllBookings] = useState<any[]>([])
     const [pendingReviews, setPendingReviews] = useState<any[]>([])
+    const [userName, setUserName] = useState<string>("")
     const { toast } = useToast()
+    const { isLoaded: clerkLoaded, isSignedIn, user: clerkUser } = useUser()
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -44,21 +29,53 @@ export default function DashboardPage() {
                     if (uStr) {
                         const u = JSON.parse(uStr)
                         if (u?.role) r = u.role
+                        if (u?.name) setUserName(u.name)
                     }
                 } catch {}
+            } else {
+                setRole(r)
             }
-            setRole(r)
+            // Get user name from localStorage or Clerk
+            try {
+                const uStr = localStorage.getItem('user')
+                if (uStr) {
+                    const u = JSON.parse(uStr)
+                    if (u?.name) setUserName(u.name)
+                }
+            } catch {}
+            if (!userName && clerkUser) {
+                setUserName(clerkUser.fullName || clerkUser.firstName || clerkUser.username || "User")
+            }
         }
-    }, [])
+    }, [clerkUser, userName])
 
     useEffect(() => {
         const load = async () => {
-            if (role !== "student") return
+            if (!clerkLoaded || !isSignedIn) return
             try {
                 const res = await bookingsApi.getMyBookings()
                 const all = (res?.data || []) as any[]
-                const list = all.filter((b: any) => b.status === "accepted")
-                setStudentBookings(list)
+                setAllBookings(all)
+                
+                if (role === "student") {
+                    // For students: get accepted bookings that are upcoming
+                    const now = new Date()
+                    const upcoming = all.filter((b: any) => {
+                        if (b.status !== "accepted") return false
+                        const scheduledDate = new Date(b.scheduledDate || b.scheduledAt)
+                        return scheduledDate >= now
+                    })
+                    setStudentBookings(upcoming)
+                } else if (role === "teacher") {
+                    // For teachers: get accepted bookings that are upcoming
+                    const now = new Date()
+                    const upcoming = all.filter((b: any) => {
+                        if (b.status !== "accepted") return false
+                        const scheduledDate = new Date(b.scheduledDate || b.scheduledAt)
+                        return scheduledDate >= now
+                    })
+                    setTeacherBookings(upcoming)
+                }
 
                 // Student notifications for status changes
                 if (typeof window !== "undefined") {
@@ -84,7 +101,8 @@ export default function DashboardPage() {
                     localStorage.setItem(key, JSON.stringify(updated))
                 }
 
-                const completed = all.filter((b: any) => b.status === "completed" && b.gig?._id)
+                if (role === "student") {
+                    const completed = all.filter((b: any) => b.status === "completed" && b.gig?._id)
                 const uniqueGigIds = Array.from(new Set(completed.map((b: any) => String(b.gig._id))))
                 const results = await Promise.all(uniqueGigIds.map(async (gid) => {
                     try {
@@ -118,16 +136,17 @@ export default function DashboardPage() {
                     }
                     localStorage.setItem(key, JSON.stringify(updated))
                 }
+                }
             } catch (e) {
                 // silent fail keeps mock UI
             }
         }
         load()
-    }, [role])
+    }, [role, clerkLoaded, isSignedIn])
 
     // Periodic polling to detect newly completed classes and pending reviews (every 60s)
     useEffect(() => {
-        if (role !== 'student') return
+        if (role !== 'student' || !clerkLoaded || !isSignedIn) return
         const id = setInterval(async () => {
             try {
                 const res = await bookingsApi.getMyBookings()
@@ -164,12 +183,40 @@ export default function DashboardPage() {
             } catch {}
         }, 60000)
         return () => clearInterval(id)
-    }, [role])
+    }, [role, clerkLoaded, isSignedIn])
+
+    // Calculate stats
+    const upcomingCount = role === "student" ? studentBookings.length : role === "teacher" ? teacherBookings.length : 0
+    
+    // Calculate total teachers (for students) or total students (for teachers)
+    const uniqueTeachers = new Set<string>()
+    const uniqueStudents = new Set<string>()
+    allBookings.forEach((b: any) => {
+        if (b.gig?.teacher?._id) uniqueTeachers.add(String(b.gig.teacher._id))
+        if (b.student?._id) uniqueStudents.add(String(b.student._id))
+    })
+    const totalTeachers = uniqueTeachers.size
+    const totalStudents = uniqueStudents.size
+
+    // Calculate hours this month from completed bookings
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const completedThisMonth = allBookings.filter((b: any) => {
+        if (b.status !== "completed") return false
+        const completedDate = new Date(b.completedAt || b.updatedAt || b.createdAt)
+        return completedDate >= startOfMonth
+    })
+    const hoursThisMonth = completedThisMonth.reduce((total: number, b: any) => {
+        const duration = b.gig?.duration || 60 // default to 60 minutes if not specified
+        return total + (duration / 60) // convert minutes to hours
+    }, 0)
+
+    const displayName = userName || "User"
 
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900">Welcome back, John!</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Welcome back, {displayName}!</h1>
                 <p className="text-gray-600 mt-2">Here's what's happening with your education journey today.</p>
             </div>
 
@@ -180,7 +227,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Upcoming Classes</p>
-                                <p className="text-2xl font-bold text-gray-900">3</p>
+                                <p className="text-2xl font-bold text-gray-900">{upcomingCount}</p>
                             </div>
                             <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
                                 <Calendar className="h-6 w-6 text-blue-600" />
@@ -193,8 +240,12 @@ export default function DashboardPage() {
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-600">Total Teachers</p>
-                                <p className="text-2xl font-bold text-gray-900">12</p>
+                                <p className="text-sm font-medium text-gray-600">
+                                    {role === "student" ? "Total Teachers" : role === "teacher" ? "Total Students" : "Total Users"}
+                                </p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {role === "student" ? totalTeachers : role === "teacher" ? totalStudents : 0}
+                                </p>
                             </div>
                             <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
                                 <Users className="h-6 w-6 text-green-600" />
@@ -208,7 +259,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Hours This Month</p>
-                                <p className="text-2xl font-bold text-gray-900">24</p>
+                                <p className="text-2xl font-bold text-gray-900">{Math.round(hoursThisMonth * 10) / 10}</p>
                             </div>
                             <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
                                 <Clock className="h-6 w-6 text-purple-600" />
@@ -284,27 +335,37 @@ export default function DashboardPage() {
                                 ))
                             )}
                         </div>
-                    ) : (
+                    ) : role === "teacher" ? (
                         <div className="space-y-4">
-                            {upcomingClasses.map((classItem) => (
-                                <div key={classItem.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                                    <div className="flex items-center space-x-4">
-                                        <Avatar className="h-12 w-12">
-                                            <AvatarImage src={classItem.avatar} />
-                                            <AvatarFallback>{classItem.teacher.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900">{classItem.subject}</h3>
-                                            <p className="text-sm text-gray-600">with {classItem.teacher}</p>
+                            {teacherBookings.length === 0 ? (
+                                <div className="text-sm text-gray-500">No upcoming classes yet.</div>
+                            ) : (
+                                teacherBookings.slice(0, 5).map((b: any) => (
+                                    <div key={b._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                        <div className="flex items-center space-x-4">
+                                            <Avatar className="h-12 w-12">
+                                                <AvatarImage src={b.student?.avatar} />
+                                                <AvatarFallback>
+                                                    {b.student?.name?.split(' ').map((n: string) => n[0]).join('') || 'S'}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <h3 className="font-semibold text-gray-900">{b.gig?.title}</h3>
+                                                <p className="text-sm text-gray-600">with {b.student?.name || "Student"}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-medium text-gray-900">
+                                                {new Date(b.scheduledDate || b.scheduledAt).toLocaleDateString()} {b.scheduledTime || ""}
+                                            </p>
+                                            <p className="text-sm text-gray-500">{b.gig?.duration || 60} min</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-medium text-gray-900">{classItem.time}</p>
-                                        <p className="text-sm text-gray-500">{classItem.duration}</p>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
+                    ) : (
+                        <div className="text-sm text-gray-500">No upcoming classes.</div>
                     )}
                 </CardContent>
             </Card>

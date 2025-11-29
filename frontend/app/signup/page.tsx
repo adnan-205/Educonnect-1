@@ -1,3 +1,8 @@
+import { redirect } from "next/navigation"
+
+export default function Page() {
+  redirect("/sign-up")
+}
 // "use client"
 
 // import { useEffect } from "react"

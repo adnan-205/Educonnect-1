@@ -6,7 +6,7 @@ import * as Sentry from "@sentry/nextjs"
 const ROUTES = {
   SIGN_IN: "/sign-in",
   SIGN_UP: "/sign-up",
-  DASHBOARD: "/dashboard-2",
+  DASHBOARD: "/dashboard",
 }
 
 export async function GET(request: NextRequest) {

@@ -43,7 +43,7 @@ export function Navbar() {
                             How it Works
                         </Link>
                         <SignedIn>
-                            <Link href="/dashboard-2">
+                            <Link href="/dashboard">
                                 <Button variant="ghost">Dashboard</Button>
                             </Link>
                             <ModeToggle />
@@ -71,7 +71,7 @@ export function Navbar() {
                                 How it Works
                             </Link>
                             <SignedIn>
-                                <Link href="/dashboard-2" onClick={() => setIsOpen(false)}>
+                                <Link href="/dashboard" onClick={() => setIsOpen(false)}>
                                     <Button variant="ghost" className="w-full justify-start">
                                         Dashboard
                                     </Button>

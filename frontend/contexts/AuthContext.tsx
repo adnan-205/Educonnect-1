@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('role', user.role);
       }
       setUser(user);
-      router.push('/dashboard-2');
+      router.push('/dashboard');
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to login');
     }
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('role', user.role);
       }
       setUser(user);
-      router.push('/dashboard-2');
+      router.push('/dashboard');
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to register');
     }

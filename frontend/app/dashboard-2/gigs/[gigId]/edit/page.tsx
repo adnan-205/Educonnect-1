@@ -142,7 +142,7 @@ export default function EditGigPage() {
         thumbnailUrl: form.thumbnailUrl || undefined,
       }
       await gigsApi.updateGig(params.gigId, payload)
-      router.replace("/dashboard-2/gigs")
+      router.replace("/dashboard/gigs")
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to update gig")
     } finally {

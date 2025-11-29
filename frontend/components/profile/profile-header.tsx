@@ -305,7 +305,9 @@ export function ProfileHeader({ profile, onUpdate, isEditable = true }: ProfileH
                     <Star className="h-4 w-4" />
                     Rating
                   </div>
-                  <div className="font-semibold">{profile.rating || 0}/5 ({profile.reviews || 0})</div>
+                  <div className="font-semibold">
+                    {profile.rating && profile.rating > 0 ? `${Number(profile.rating).toFixed(1)}` : '0'}/5 ({profile.reviews || 0})
+                  </div>
                 </div>
                 <div className="text-center">
                   <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">

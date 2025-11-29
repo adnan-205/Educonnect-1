@@ -2,14 +2,15 @@
   "status": "commited",
   "type": "frontend",
   "scope": "codebase",
-  "localEndpoint": "http://localhost:3000",
+  "localEndpoint": "http://localhost:5000",
   "executionArgs": {
     "projectName": "Educonnect-1-3",
-    "projectPath": "c:\\Users\\iqbal\\OneDrive\\Desktop\\mern-stack\\Educonnect\\Educonnect-1-3",
+    "projectPath": "C:\\Users\\iqbal\\OneDrive\\Desktop\\mern-stack\\Educonnect\\Educonnect-1-3",
     "testIds": [],
-    "additionalInstruction": "Test the complete EduConnect application including user authentication, teacher gig management, student booking system, and all dashboard functionalities. Focus on critical user flows and API integrations.",
+    "additionalInstruction": "Generate comprehensive tests for both frontend and backend covering all major features including authentication, gig management, booking system, payments, wallet, reviews, and admin features. Ensure tests are realistic and cover edge cases.",
     "envs": {
-      "API_KEY": "sk-user-eX3Xa4LsCcpTgORnW4_vLwA8sQg3f5k4RHRk2WdSBRgalwE6bdK920sSZeaVGr8Z8bXbinXTolC98Pb9Rxri4QL4_PQ3-M2QCSB-O1hf6uehud8xZ4qI46BYJk5W6CUrkc4"
+      "API_KEY": "sk-user-9HspQa-5z_pUESU9qgTYj5q6cz3ncp-_TwGJhIJjCADuJtx3p12BOJHfr6HKPrdlD4KjDS4OsP4d5P4AdSQQR2hOUl4iRdIUvnos-pBXkTJagkdpS_EH-L4-ZVwqPmUha8Q"
     }
-  }
+  },
+  "proxy": "http://cda8c062-eec1-4f0d-b094-e9ebe73f3a27:ibGZJQcxDDvPFrlwT5ysWdkKqWlHhQ72@tun.testsprite.com:8080"
 }

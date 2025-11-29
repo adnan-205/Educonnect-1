@@ -32,12 +32,31 @@ export const clerkSync = async (req: Request, res: Response) => {
     if (!user) {
       // Default role as student; can be updated later via updateRole
       const generatedPassword = Math.random().toString(36).slice(-12);
+      const userName = (name && name.trim()) ? name.trim() : email.split('@')[0];
       user = await User.create({
-        name: name || email.split('@')[0],
+        name: userName,
         email,
         password: generatedPassword,
         role: 'student',
       });
+    } else {
+      // Update name if it's provided, not empty, and different from current name
+      if (name && name.trim() && name.trim() !== user.name) {
+        try {
+          user = await User.findOneAndUpdate(
+            { email },
+            { name: name.trim() },
+            { new: true, runValidators: true }
+          );
+          if (!user) {
+            // If update failed, fetch user again
+            user = await User.findOne({ email });
+          }
+        } catch (updateError) {
+          console.error('Error updating user name in clerkSync:', updateError);
+          // Continue with existing user if update fails
+        }
+      }
     }
 
     // Promote to admin if email allowlisted
@@ -47,10 +66,24 @@ export const clerkSync = async (req: Request, res: Response) => {
         .map(e => e.trim().toLowerCase())
         .filter(Boolean);
       if (email && allow.includes(email.toLowerCase()) && user.role !== 'admin') {
-        user.role = 'admin' as any;
-        await user.save();
+        user = await User.findOneAndUpdate(
+          { email },
+          { role: 'admin' },
+          { new: true }
+        ) || user;
       }
-    } catch {}
+    } catch (adminError) {
+      console.error('Error promoting user to admin:', adminError);
+      // Continue even if admin promotion fails
+    }
+
+    // Ensure user exists and is valid
+    if (!user) {
+      return res.status(500).json({
+        success: false,
+        message: 'User not found after creation/update',
+      });
+    }
 
     // Issue backend JWT
     const token = jwt.sign(
@@ -59,7 +92,13 @@ export const clerkSync = async (req: Request, res: Response) => {
       { expiresIn: process.env.JWT_EXPIRE || '30d' }
     );
 
-    await logActivity({ userId: (user as any)?._id, action: 'auth.clerkSync', metadata: { email }, req });
+    // Log activity (non-blocking - don't fail if this errors)
+    try {
+      await logActivity({ userId: (user as any)?._id, action: 'auth.clerkSync', metadata: { email }, req });
+    } catch (logError) {
+      console.error('Error logging activity in clerkSync:', logError);
+      // Continue even if logging fails
+    }
 
     res.json({
       success: true,
@@ -73,11 +112,11 @@ export const clerkSync = async (req: Request, res: Response) => {
         marketingSource: (user as any).marketingSource,
       },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Clerk sync error:', err);
     res.status(500).json({
       success: false,
-      message: 'Error syncing user from Clerk',
+      message: err?.message || 'Error syncing user from Clerk',
     });
   }
 };
@@ -209,6 +248,62 @@ export const updateRole = async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error('Update role error:', err);
+    res.status(500).json({
+      success: false,
+      message: "Error updating user role",
+    });
+  }
+};
+
+// Self-service role update: allows users to update their own role
+// This is used during role selection, so it doesn't require authentication
+// but only allows updating to 'student' or 'teacher' (not 'admin')
+export const updateMyRole = async (req: Request, res: Response) => {
+  try {
+    const { email, role } = req.body;
+    const currentUser = (req as any)?.user;
+
+    if (!email || !role || !["student", "teacher"].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role or email. Only 'student' or 'teacher' roles are allowed.",
+      });
+    }
+
+    // If user is authenticated, verify they're updating their own email
+    if (currentUser && currentUser.email !== email) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only update your own role",
+      });
+    }
+
+    const user = await User.findOneAndUpdate(
+      { email },
+      { role },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    await logActivity({ userId: user._id, action: 'user.updateMyRole', metadata: { email, role } , req });
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error('Update my role error:', err);
     res.status(500).json({
       success: false,
       message: "Error updating user role",

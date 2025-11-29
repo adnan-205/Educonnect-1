@@ -85,7 +85,7 @@ export default function BookGigPage() {
         timeZone: tz,
       })
       setSuccess("Booking request submitted!")
-      setTimeout(() => router.replace("/dashboard-2"), 800)
+      setTimeout(() => router.replace("/dashboard"), 800)
     } catch (e: any) {
       setError(e?.response?.data?.message || "Failed to create booking")
     } finally {

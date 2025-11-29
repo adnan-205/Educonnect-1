@@ -1,0 +1,654 @@
+[
+  {
+    "id": "TC001",
+    "title": "User Registration with Email and Role Selection",
+    "description": "Verify that a new user can register with a valid email, password, and select either teacher or student role successfully.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the registration page"
+      },
+      {
+        "type": "action",
+        "description": "Input valid name, email, password, confirm password"
+      },
+      {
+        "type": "action",
+        "description": "Select role as teacher"
+      },
+      {
+        "type": "action",
+        "description": "Submit registration form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify registration success and redirection to login or dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Repeat registration with role selected as student"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify registration success and role is saved as student"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "User Registration Validation and Error Handling",
+    "description": "Verify that form validations trigger and display appropriate error messages on invalid registration inputs including missing fields, invalid email, weak password, password mismatch.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to registration page"
+      },
+      {
+        "type": "action",
+        "description": "Submit empty registration form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify errors shown for required fields"
+      },
+      {
+        "type": "action",
+        "description": "Input invalid email format"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify invalid email error displayed"
+      },
+      {
+        "type": "action",
+        "description": "Input password and confirmation that do not match"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify password mismatch error displayed"
+      },
+      {
+        "type": "action",
+        "description": "Input weak password below minimum strength"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify weak password error displayed"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "User Login with Email/Password",
+    "description": "Verify that a registered user can log in successfully using correct email and password credentials with persistent JWT session.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter valid registered email and password"
+      },
+      {
+        "type": "action",
+        "description": "Click login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify successful login and redirection to correct role-based dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify JWT token is issued and stored for persistent session"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "User Login Failure with Incorrect Credentials",
+    "description": "Verify that login fails with appropriate error messages for wrong email or password inputs.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to login page"
+      },
+      {
+        "type": "action",
+        "description": "Enter unregistered email and any password"
+      },
+      {
+        "type": "action",
+        "description": "Click login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login failure message for invalid email"
+      },
+      {
+        "type": "action",
+        "description": "Enter registered email and incorrect password"
+      },
+      {
+        "type": "action",
+        "description": "Click login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login failure message for incorrect password"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Google OAuth Registration and Login",
+    "description": "Verify users can register and login successfully using Google OAuth with correct role assignment and session persistence.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to login page"
+      },
+      {
+        "type": "action",
+        "description": "Click on Google sign-in button"
+      },
+      {
+        "type": "action",
+        "description": "Authenticate and authorize via Google"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user is registered or logged in successfully with proper role"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify JWT token is issued and session is persistent"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Teacher Gig Creation with Valid Data",
+    "description": "Verify that authenticated teacher can create a new teaching gig with all valid fields successfully.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as teacher"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to create gig page"
+      },
+      {
+        "type": "action",
+        "description": "Input valid title, category, price, duration, description, availability"
+      },
+      {
+        "type": "action",
+        "description": "Submit gig creation form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify gig is created and appears in teacher dashboard and in gig browsing for students"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Teacher Gig Creation Validation and Error Handling",
+    "description": "Verify validations prevent gig creation with missing or invalid inputs and appropriate error messages are shown.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as teacher"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to create gig page"
+      },
+      {
+        "type": "action",
+        "description": "Submit gig form with empty required fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation errors are displayed for required fields"
+      },
+      {
+        "type": "action",
+        "description": "Input negative price or duration"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation errors for invalid numeric values"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Teacher Gig Update and Deletion Authorization",
+    "description": "Verify only authenticated teacher owner of the gig can update or delete their gig; others are denied access.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Teacher A"
+      },
+      {
+        "type": "action",
+        "description": "Create a gig"
+      },
+      {
+        "type": "action",
+        "description": "Login as Teacher B"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to update Teacher A's gig"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access denied or forbidden error"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to delete Teacher A's gig"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access denied or forbidden error"
+      },
+      {
+        "type": "action",
+        "description": "Login back as Teacher A and update or delete gig"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify operation success"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Student Browsing and Filtering Gigs",
+    "description": "Verify student can browse available gigs and apply filters by category, price range, and rating.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as student"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to gig browsing page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify list of gigs is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Apply filter by category"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify gigs displayed match selected category"
+      },
+      {
+        "type": "action",
+        "description": "Apply filter by price range"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify gigs displayed match selected price range"
+      },
+      {
+        "type": "action",
+        "description": "Apply filter by rating"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify gigs displayed meet or exceed rating filter"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Student Booking Request Creation with Valid Schedule",
+    "description": "Verify student can create booking requests for selected gigs with valid preferred scheduling data successfully.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as student"
+      },
+      {
+        "type": "action",
+        "description": "Browse and select a gig"
+      },
+      {
+        "type": "action",
+        "description": "Input valid preferred date and time"
+      },
+      {
+        "type": "action",
+        "description": "Submit booking request"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify booking request is created with status pending and appears in student and teacher dashboards"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Booking Request Validation and Error Handling",
+    "description": "Verify booking fails with invalid scheduling data and appropriate error messages are displayed to student.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as student"
+      },
+      {
+        "type": "action",
+        "description": "Select a gig to book"
+      },
+      {
+        "type": "action",
+        "description": "Input past date or invalid time format"
+      },
+      {
+        "type": "action",
+        "description": "Submit booking request"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify form validation errors are displayed for scheduling fields"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Teacher Booking Approval and Rejection Workflow",
+    "description": "Verify teacher receives booking requests and can accept or reject them. Status updates propagate correctly to student and teacher dashboards.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Student creates a booking request for Teacher's gig"
+      },
+      {
+        "type": "action",
+        "description": "Login as teacher"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to booking requests dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify pending booking request is visible"
+      },
+      {
+        "type": "action",
+        "description": "Accept the booking request"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify booking status updates to accepted for both student and teacher"
+      },
+      {
+        "type": "action",
+        "description": "Reject a different pending booking request"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify booking status updates to rejected correctly"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Payment Processing after Booking Acceptance",
+    "description": "Verify that upon booking acceptance, student can proceed with secure payment and payment success updates booking status correctly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Student creates booking request and teacher accepts it"
+      },
+      {
+        "type": "action",
+        "description": "Student is prompted to pay for the booking"
+      },
+      {
+        "type": "action",
+        "description": "Complete payment via integrated secure gateway"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify payment success message displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify booking status reflects payment completion"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Dashboard Data Accuracy for Teacher",
+    "description": "Verify teacher dashboard accurately displays earnings, ratings, booking requests and their statuses.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as teacher"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify displayed earnings match completed sessions"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify ratings are correctly aggregated and displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all booking requests are listed with correct status"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Dashboard Data Accuracy for Student",
+    "description": "Verify student dashboard correctly shows upcoming classes, booking history, and statistics.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as student"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify upcoming sessions are listed with correct details"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify booking history includes completed and cancelled sessions"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify statistics data is correct"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Real-time Updates for Booking Status Changes and Notifications",
+    "description": "Verify real-time synchronization of booking requests, status updates, and notifications via email and in-app for both users.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Student creates booking request"
+      },
+      {
+        "type": "assertion",
+        "description": "Teacher receives real-time notification in-app and email"
+      },
+      {
+        "type": "action",
+        "description": "Teacher accepts booking"
+      },
+      {
+        "type": "assertion",
+        "description": "Student receives real-time update and notification"
+      },
+      {
+        "type": "action",
+        "description": "Verify real-time data sync on multiple devices logged in as same user"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Role-based Access Control Enforcement on API Endpoints",
+    "description": "Verify that API endpoints enforce role-based access restrictions properly, returning forbidden or unauthorized errors when violated.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to create gig using student JWT token"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify 403 Forbidden error returned"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to update booking status using student token"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify 403 Forbidden error returned"
+      },
+      {
+        "type": "action",
+        "description": "Access secured endpoints without authentication"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify 401 Unauthorized error returned"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Form Validation Across Frontend and Backend",
+    "description": "Verify all forms enforce validation rules both client and server side to prevent invalid data submission.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Submit registration form with invalid data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify client-side validation triggers and user cannot submit"
+      },
+      {
+        "type": "action",
+        "description": "Bypass client validation using API call with invalid data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify backend rejects invalid input with descriptive errors"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Responsive UI Verification Across Devices",
+    "description": "Verify that the UI renders correctly and is fully functional on various devices including desktop, tablet, and mobile with responsive design.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open application on desktop browser"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI elements are correctly sized and laid out"
+      },
+      {
+        "type": "action",
+        "description": "Open application on tablet-sized viewport"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI adjusts layout appropriately"
+      },
+      {
+        "type": "action",
+        "description": "Open application on mobile viewport"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify mobile-first UI is fully accessible and functional"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Loading and Error States Handling",
+    "description": "Verify loading indicators appear during async operations and error states display appropriate feedback messages to users.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger page or data loading that takes time"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify loading spinner or skeleton is visible"
+      },
+      {
+        "type": "action",
+        "description": "Simulate server error during data fetch"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user-friendly error message is displayed"
+      }
+    ]
+  }
+]

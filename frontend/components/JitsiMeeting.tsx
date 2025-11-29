@@ -179,7 +179,7 @@ export default function JitsiMeeting({
           onMeetingEnd?.();
           // Also navigate back to dashboard as a convenience
           try {
-            router.push("/dashboard-2");
+            router.push("/dashboard");
           } catch (_) {
             // ignore navigation errors
           }

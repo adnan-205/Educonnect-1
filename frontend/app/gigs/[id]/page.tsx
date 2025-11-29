@@ -20,10 +20,13 @@ async function getGigReviews(id: string) {
   return res.json()
 }
 
-export default async function GigPublicPage({ params }: { params: { id: string } }) {
-  const gigRes = await getGig(params.id)
+export default async function GigPublicPage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
+  const resolved = (params as any)?.then ? await (params as Promise<{ id: string }>) : (params as { id: string })
+  const id = resolved.id
+
+  const gigRes = await getGig(id)
   const gig = gigRes?.data || gigRes
-  const reviewsRes = await getGigReviews(params.id)
+  const reviewsRes = await getGigReviews(id)
   const reviews = reviewsRes?.data || []
 
   const teacher = gig?.teacher || {}

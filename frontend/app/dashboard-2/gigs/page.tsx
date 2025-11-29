@@ -100,7 +100,7 @@ export default function GigsPage() {
                     <h1 className="text-3xl font-bold text-gray-900">My Gigs</h1>
                     <p className="text-gray-600 mt-2">Manage your teaching services and offerings.</p>
                 </div>
-                <Link href="/dashboard-2/gigs/create">
+                <Link href="/dashboard/gigs/create">
                     <Button className="bg-blue-600 hover:bg-blue-700">
                         <Plus className="h-4 w-4 mr-2" />
                         Create New Gig
@@ -122,7 +122,7 @@ export default function GigsPage() {
                                 <Star className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                                 <h3 className="text-lg font-medium text-gray-900 mb-2">No gigs created yet</h3>
                                 <p className="text-gray-500 mb-4">Create your first gig to start teaching students.</p>
-                                <Link href="/dashboard-2/gigs/create">
+                                <Link href="/dashboard/gigs/create">
                                     <Button className="bg-blue-600 hover:bg-blue-700">
                                         <Plus className="h-4 w-4 mr-2" />
                                         Create Your First Gig
@@ -154,7 +154,7 @@ export default function GigsPage() {
                                             variant="ghost"
                                             onClick={() => {
                                                 // Navigate to edit gig page (dashboard-2 route)
-                                                window.location.href = `/dashboard-2/gigs/${gig._id}/edit`
+                                                window.location.href = `/dashboard/gigs/${gig._id}/edit`
                                             }}
                                         >
                                             <Edit className="h-4 w-4" />

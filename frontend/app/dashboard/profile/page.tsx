@@ -6,7 +6,7 @@ import { ExperienceSection } from "@/components/profile/experience-section"
 import { EducationSection } from "@/components/profile/education-section"
 import { WorkSection } from "@/components/profile/work-section"
 import { DemoVideoSection } from "@/components/profile/demo-video-section"
-import { usersApi } from "@/services/api"
+import { usersApi, bookingsApi } from "@/services/api"
 import { useToast } from "@/hooks/use-toast"
 import type { UserProfile, Experience, Education, Work, DemoVideo } from "@/lib/types/profile"
 
@@ -52,6 +52,39 @@ export default function ProfilePage() {
                 const res = await usersApi.getUser(me.id)
                 const userData = res?.data
                 if (userData) {
+                    // Calculate stats for teachers
+                    let totalStudents = 0
+                    let totalHours = 0
+                    
+                    if (userData.role === 'teacher') {
+                        try {
+                            // Fetch all bookings for this teacher
+                            const bookingsRes = await bookingsApi.getMyBookings()
+                            const allBookings = bookingsRes?.data || []
+                            
+                            // Get completed bookings
+                            const completedBookings = allBookings.filter((b: any) => b.status === 'completed')
+                            
+                            // Calculate unique students
+                            const uniqueStudents = new Set<string>()
+                            completedBookings.forEach((b: any) => {
+                                if (b.student?._id) {
+                                    uniqueStudents.add(String(b.student._id))
+                                }
+                            })
+                            totalStudents = uniqueStudents.size
+                            
+                            // Calculate total hours from completed bookings
+                            totalHours = completedBookings.reduce((total: number, b: any) => {
+                                const duration = b.gig?.duration || 60 // default to 60 minutes
+                                return total + (duration / 60) // convert minutes to hours
+                            }, 0)
+                        } catch (bookingError) {
+                            console.error('Error calculating teacher stats:', bookingError)
+                            // Continue with defaults if booking fetch fails
+                        }
+                    }
+                    
                     setProfile({
                         id: userData._id || me.id,
                         name: userData.name || me.name || 'Your Name',
@@ -73,8 +106,10 @@ export default function ProfilePage() {
                         availability: userData.profile?.availability || '',
                         timezone: userData.profile?.timezone || '',
                         demoVideos: userData.profile?.demoVideos || [],
-                        rating: typeof userData.teacherRatingAverage === 'number' ? userData.teacherRatingAverage : 0,
+                        rating: typeof userData.teacherRatingAverage === 'number' ? Number(userData.teacherRatingAverage.toFixed(1)) : 0,
                         reviews: typeof userData.teacherReviewsCount === 'number' ? userData.teacherReviewsCount : 0,
+                        totalStudents,
+                        totalHours: Math.round(totalHours * 10) / 10, // Round to 1 decimal place
                     })
                 }
             } catch (error) {

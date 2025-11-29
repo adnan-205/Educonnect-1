@@ -33,7 +33,7 @@ export default function DashboardLayout({
     useEffect(() => {
         if (!isLoaded) return
         // Allow embedded video call route without sign-in to avoid loops
-        const isVideoCallRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard-2/video-call/")
+        const isVideoCallRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard/video-call/")
         if (!isSignedIn && !isVideoCallRoute) {
             router.replace("/sign-in")
             return
@@ -41,7 +41,7 @@ export default function DashboardLayout({
         // Allow joining embedded video call even if role not yet set
         const role = typeof window !== "undefined" ? localStorage.getItem("role") : null
         if (!role && !isVideoCallRoute) {
-            router.replace("/role-selection")
+            router.replace("/onboarding")
             return
         }
     }, [isLoaded, isSignedIn, router])
@@ -94,32 +94,32 @@ export default function DashboardLayout({
     const initials = (name: string) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'
 
     const navigationItems = userType === "teacher" ? [
-        { id: "home", label: "Dashboard", icon: Home, href: "/dashboard-2" },
-        { id: "profile", label: "Profile", icon: User, href: "/dashboard-2/profile" },
-        { id: "bookings", label: "Bookings", icon: BookOpen, href: "/dashboard-2/bookings" },
-        { id: "my-classes", label: "My Classes", icon: Video, href: "/dashboard-2/my-classes" },
-        { id: "students", label: "My Students", icon: Users, href: "/dashboard-2/students" },
-        { id: "gigs", label: "My Gigs", icon: Star, href: "/dashboard-2/gigs" },
-        { id: "earnings", label: "Earnings", icon: DollarSign, href: "/dashboard-2/earnings" },
-        { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard-2/messages" },
-        { id: "settings", label: "Settings", icon: Settings, href: "/dashboard-2/settings" }
+        { id: "home", label: "Dashboard", icon: Home, href: "/dashboard" },
+        { id: "profile", label: "Profile", icon: User, href: "/dashboard/profile" },
+        { id: "bookings", label: "Bookings", icon: BookOpen, href: "/dashboard/bookings" },
+        { id: "my-classes", label: "My Classes", icon: Video, href: "/dashboard/my-classes" },
+        { id: "students", label: "My Students", icon: Users, href: "/dashboard/students" },
+        { id: "gigs", label: "My Gigs", icon: Star, href: "/dashboard/gigs" },
+        { id: "earnings", label: "Earnings", icon: DollarSign, href: "/dashboard/earnings" },
+        { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard/messages" },
+        { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" }
     ] : userType === "admin" ? [
-        { id: "home", label: "Admin Dashboard", icon: Home, href: "/dashboard-2" },
-        { id: "users", label: "User Management", icon: Users, href: "/dashboard-2/users" },
-        { id: "transactions", label: "Transactions", icon: DollarSign, href: "/dashboard-2/transactions" },
-        { id: "classes", label: "Class Analytics", icon: Video, href: "/dashboard-2/classes" },
-        { id: "settings", label: "Settings", icon: Settings, href: "/dashboard-2/settings" }
+        { id: "home", label: "Admin Dashboard", icon: Home, href: "/dashboard" },
+        { id: "users", label: "User Management", icon: Users, href: "/dashboard/users" },
+        { id: "transactions", label: "Transactions", icon: DollarSign, href: "/dashboard/transactions" },
+        { id: "classes", label: "Class Analytics", icon: Video, href: "/dashboard/classes" },
+        { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" }
     ] : [
-        { id: "home", label: "Home", icon: Home, href: "/dashboard-2" },
-        { id: "book-classes", label: "Book Classes", icon: BookOpen, href: "/dashboard-2/book-classes" },
-        { id: "join-class", label: "Join Class", icon: Video, href: "/dashboard-2/join-class" },
-        { id: "my-teachers", label: "My Teachers", icon: Users, href: "/dashboard-2/my-teachers" },
-        { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard-2/messages" },
-        { id: "settings", label: "Settings", icon: Settings, href: "/dashboard-2/settings" }
+        { id: "home", label: "Home", icon: Home, href: "/dashboard" },
+        { id: "book-classes", label: "Book Classes", icon: BookOpen, href: "/dashboard/book-classes" },
+        { id: "join-class", label: "Join Class", icon: Video, href: "/dashboard/join-class" },
+        { id: "my-teachers", label: "My Teachers", icon: Users, href: "/dashboard/my-teachers" },
+        { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard/messages" },
+        { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" }
     ]
 
     // Render minimal layout for embedded video-call route (avoid nav and role checks UI)
-    const isVideoCallRoute = pathname?.startsWith('/dashboard-2/video-call/')
+    const isVideoCallRoute = pathname?.startsWith('/dashboard/video-call/')
     if (isVideoCallRoute) {
         return (
             <div className="min-h-screen bg-gray-50">{children}</div>
@@ -153,16 +153,6 @@ export default function DashboardLayout({
                             <p className="text-sm text-gray-500 capitalize">{userType}</p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => {
-                            localStorage.removeItem("role")
-                            setUserType(null)
-                            router.push("/")
-                        }}
-                        className="text-red-600 hover:text-red-700 text-sm font-medium"
-                    >
-                        Sign Out
-                    </button>
                 </div>
             </div>
 
@@ -195,7 +185,7 @@ export default function DashboardLayout({
                 <div className="p-6 border-b border-gray-200">
                     <div className="text-center">
                         <Link
-                            href="/dashboard-2/settings"
+                            href="/dashboard/settings"
                             className="group transition-transform hover:scale-105"
                         >
                             <Avatar className="h-16 w-16 mx-auto mb-3 group-hover:ring-2 group-hover:ring-blue-300 transition-all">
@@ -232,19 +222,6 @@ export default function DashboardLayout({
                     })}
                 </nav>
 
-                {/* Sign Out Button */}
-                <div className="p-4 border-t border-gray-200">
-                    <button
-                        onClick={() => {
-                            localStorage.removeItem("role")
-                            setUserType(null)
-                            router.push("/")
-                        }}
-                        className="w-full text-sm text-red-600 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors font-medium"
-                    >
-                        Sign Out
-                    </button>
-                </div>
             </div>
 
             {/* Right Content Panel */}

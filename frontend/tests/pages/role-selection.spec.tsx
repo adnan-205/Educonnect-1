@@ -21,7 +21,7 @@ describe('RoleSelectionPage', () => {
     localStorage.clear();
   });
 
-  it('submits student role and redirects to /dashboard-2', async () => {
+  it('submits student role and redirects to /dashboard', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), { status: 200 }));
 
     render(<RoleSelectionPage />);

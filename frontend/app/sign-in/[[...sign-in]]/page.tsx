@@ -8,6 +8,7 @@ export default function Page() {
   const router = useRouter();
   const { isLoaded, isSignedIn, user } = useUser();
   const { signOut } = useClerk();
+  
 
   if (!isLoaded) return null;
 
@@ -42,7 +43,9 @@ export default function Page() {
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center">
-      <SignIn afterSignInUrl="/post-auth" />
+      <div className="space-y-4 flex flex-col items-center">
+        <SignIn routing="path" path="/sign-in" fallbackRedirectUrl="/post-auth" signUpUrl="/sign-up" />
+      </div>
     </div>
   );
 }

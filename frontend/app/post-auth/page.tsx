@@ -35,16 +35,23 @@ export default function PostAuthPage() {
             router.replace("/onboarding")
             return
           }
-          router.replace("/dashboard-2")
+          router.replace("/dashboard")
         } else {
-          router.replace("/role-selection")
+          router.replace("/onboarding")
         }
       } catch (e) {
-        router.replace("/role-selection")
+        router.replace("/onboarding")
       }
     }
     go()
   }, [isLoaded, isSignedIn, user?.id, router])
 
-  return null
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center text-center p-6">
+      <div>
+        <div className="text-xl font-semibold">Login Successful! Welcome back</div>
+        <div className="text-sm text-muted-foreground mt-2">User successfully logged in with Google OAuth</div>
+      </div>
+    </div>
+  )
 }

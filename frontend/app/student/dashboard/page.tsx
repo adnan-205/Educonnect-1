@@ -51,7 +51,7 @@ export default function StudentDashboard() {
   const { isSignedIn, isLoaded } = useUser()
   // Redirect to unified dashboard and avoid rendering heavy UI here
   useEffect(() => {
-    router.replace('/dashboard-2')
+    router.replace('/dashboard')
   }, [router])
   return null
   
@@ -88,7 +88,7 @@ export default function StudentDashboard() {
       return
     }
     if (role !== 'student') {
-      router.replace('/role-selection')
+      router.replace('/onboarding')
       return
     }
   }, [isLoaded, isSignedIn, router])

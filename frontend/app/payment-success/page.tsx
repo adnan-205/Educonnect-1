@@ -23,8 +23,8 @@ export default function PaymentSuccessPage() {
             <div className="text-xs text-gray-500">Transaction ID: {tranId}</div>
           )}
           <div className="flex justify-center gap-3">
-            <Button onClick={() => router.push("/dashboard-2/join-class")}>Go to Join Class</Button>
-            <Button variant="outline" onClick={() => router.push("/dashboard-2")}>Back to Dashboard</Button>
+            <Button onClick={() => router.push("/dashboard/join-class")}>Go to Join Class</Button>
+            <Button variant="outline" onClick={() => router.push("/dashboard")}>Back to Dashboard</Button>
           </div>
         </CardContent>
       </Card>

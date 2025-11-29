@@ -18,8 +18,8 @@ export default function PaymentFailedPage() {
         <CardContent className="space-y-4 text-center">
           <p className="text-gray-600">We couldn't process your payment. You can try again.</p>
           <div className="flex justify-center gap-3">
-            <Button onClick={() => router.push("/dashboard-2/join-class")}>Back to Join Class</Button>
-            <Button variant="outline" onClick={() => router.push("/dashboard-2")}>Back to Dashboard</Button>
+            <Button onClick={() => router.push("/dashboard/join-class")}>Back to Join Class</Button>
+            <Button variant="outline" onClick={() => router.push("/dashboard")}>Back to Dashboard</Button>
           </div>
         </CardContent>
       </Card>

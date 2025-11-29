@@ -329,18 +329,43 @@ api.interceptors.request.use(
 
     let token: string | null = null;
 
-    // 1) Clerk or custom token from provider
-    if (authTokenProvider) {
+    // Prefer backend-issued token first
+    if (typeof window !== 'undefined') {
+      try { token = localStorage.getItem('token'); } catch {}
+    }
+
+    // If no backend token yet, try to obtain one using stored email (silent preflight)
+    if (!token && typeof window !== 'undefined') {
       try {
-        token = await authTokenProvider();
-      } catch (e) {
-        // ignore provider errors and fallback to local storage
+        const email = localStorage.getItem('userEmail');
+        if (email && !(config.url || '').includes('/auth/')) {
+          const res = await api.post('/auth/clerk-sync', { email });
+          const data: any = res?.data || {};
+          const newToken = data?.token as string | undefined;
+          const user = data?.user;
+          if (user) {
+            try { localStorage.setItem('user', JSON.stringify(user)); } catch {}
+            if (user.role) {
+              try { localStorage.setItem('role', user.role); } catch {}
+            }
+          }
+          if (newToken) {
+            try { localStorage.setItem('token', newToken); } catch {}
+            token = newToken;
+          }
+        }
+      } catch {
+        // ignore; will proceed without token and rely on 401 recovery
       }
     }
 
-    // 2) Fallback to localStorage token (legacy)
-    if (!token && typeof window !== 'undefined') {
-      token = localStorage.getItem('token');
+    // Fallback to Clerk token provider if backend token still missing
+    if (!token && authTokenProvider) {
+      try {
+        token = await authTokenProvider();
+      } catch (e) {
+        // ignore provider errors and continue without token
+      }
     }
 
     if (token) {
@@ -454,6 +479,13 @@ api.interceptors.response.use(
       } catch (_) {
         console.error('[API] No Response:', info);
       }
+      // Notify UI layer to present a retry option
+      try {
+        if (typeof window !== 'undefined') {
+          const detail = { url: info.url, method: info.method } as const
+          window.dispatchEvent(new CustomEvent('educonnect:network-error', { detail }))
+        }
+      } catch {}
     } else {
       // Something happened in setting up the request
       console.error('[API] Request Setup Error:', {
@@ -543,7 +575,7 @@ export const authApi = {
 
   updateRole: async (email: string, role: string) => {
     try {
-      const response = await api.put('/auth/update-role', { email, role });
+      const response = await api.put('/auth/update-my-role', { email, role });
       return response.data;
     } catch (error) {
       console.error('Error updating user role:', error);

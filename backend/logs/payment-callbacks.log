@@ -33,3 +33,6 @@
 {"ts":"2025-10-26T13:27:40.569Z","event":"init-payload","payload":{"tran_id":"5e65f951-1208-4a44-a794-746b280807dc","gigId":"68d6c2b9413b73121ac76749","bookingId":"68fe2160bf8d52851a8a758f","studentId":"68bb3b260efc2680cabdfb15","amount":3000}}
 {"ts":"2025-10-26T13:27:51.014Z","event":"wallet-credited","payload":{"tran_id":"5e65f951-1208-4a44-a794-746b280807dc","teacherId":"68bfde1649249c92113b8aa8","amount":3000}}
 {"ts":"2025-10-26T13:27:51.014Z","event":"success","payload":{"tran_id":"5e65f951-1208-4a44-a794-746b280807dc","updatedId":"68fe21ccbf8d52851a8a76f6","bookingId":"68fe2160bf8d52851a8a758f"}}
+{"ts":"2025-11-29T11:15:28.949Z","event":"init-payload","payload":{"tran_id":"31b86f0b-c295-4f6d-9568-c2f2ae0fdcf9","gigId":"692a9a85463203251d87694b","bookingId":"692ad55e4c7150d42c899723","studentId":"68bb3b260efc2680cabdfb15","amount":3000}}
+{"ts":"2025-11-29T11:15:57.735Z","event":"wallet-credited","payload":{"tran_id":"31b86f0b-c295-4f6d-9568-c2f2ae0fdcf9","teacherId":"692a958a87b4f77937794880","amount":3000}}
+{"ts":"2025-11-29T11:15:57.736Z","event":"success","payload":{"tran_id":"31b86f0b-c295-4f6d-9568-c2f2ae0fdcf9","updatedId":"692ad5d04c7150d42c899819","bookingId":"692ad55e4c7150d42c899723"}}
