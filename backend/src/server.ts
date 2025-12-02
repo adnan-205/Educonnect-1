@@ -86,6 +86,8 @@ const devOriginRegex = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.[0-9]{1,3}\.
 
 // Render.com specific patterns
 const renderOriginRegex = /^https:\/\/.*\.onrender\.com$/;
+// Vercel specific patterns
+const vercelOriginRegex = /^https:\/\/.*\.vercel\.app$/;
 // SSLCommerz origins (sandbox and live)
 const sslcommerzOriginRegex = /^https:\/\/(sandbox|securepay)\.sslcommerz\.com$/;
 
@@ -108,6 +110,9 @@ const corsOptions: CorsOptions = {
 
     // Allow Render.com subdomains
     if (renderOriginRegex.test(origin)) return callback(null, true);
+
+    // Allow Vercel subdomains
+    if (vercelOriginRegex.test(origin)) return callback(null, true);
 
     // Allow SSLCommerz gateways to POST callbacks
     if (sslcommerzOriginRegex.test(origin)) return callback(null, true);
@@ -147,40 +152,64 @@ app.use(limiter);
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to EduConnect API',
+    version: '1.0.0',
+    baseUrl: `${req.protocol}://${req.get('host')}`,
     endpoints: {
+      health: {
+        basic: 'GET /health',
+        detailed: 'GET /health/detailed',
+        ready: 'GET /health/ready',
+        live: 'GET /health/live'
+      },
       auth: {
         register: 'POST /api/auth/register',
-        login: 'POST /api/auth/login'
+        login: 'POST /api/auth/login',
+        updateRole: 'PUT /api/auth/role (Admin)',
+        updateMyRole: 'PUT /api/auth/me/role',
+        clerkSync: 'POST /api/auth/clerk-sync'
+      },
+      users: {
+        getUser: 'GET /api/users/:id',
+        getUserGigs: 'GET /api/users/:id/gigs',
+        updateMe: 'PUT /api/users/me (Protected)'
       },
       gigs: {
         getAllGigs: 'GET /api/gigs',
         getGig: 'GET /api/gigs/:id',
-        createGig: 'POST /api/gigs',
-        updateGig: 'PUT /api/gigs/:id',
-        deleteGig: 'DELETE /api/gigs/:id'
+        createGig: 'POST /api/gigs (Teacher)',
+        updateGig: 'PUT /api/gigs/:id (Teacher)',
+        deleteGig: 'DELETE /api/gigs/:id (Teacher)',
+        getGigReviews: 'GET /api/gigs/:gigId/reviews',
+        getMyReviewForGig: 'GET /api/gigs/:gigId/reviews/me',
+        createReviewForGig: 'POST /api/gigs/:gigId/reviews'
       },
       bookings: {
-        getAllBookings: 'GET /api/bookings',
-        getBooking: 'GET /api/bookings/:id',
-        createBooking: 'POST /api/bookings',
-        updateBookingStatus: 'PUT /api/bookings/:id'
+        getAllBookings: 'GET /api/bookings (Protected)',
+        getBooking: 'GET /api/bookings/:id (Protected)',
+        createBooking: 'POST /api/bookings (Student)',
+        updateBookingStatus: 'PUT /api/bookings/:id (Teacher)',
+        getBookingByRoom: 'GET /api/bookings/room/:roomId (Protected)',
+        markAttendance: 'POST /api/bookings/:id/attendance (Student)'
       },
       reviews: {
         list: 'GET /api/reviews?gig=&teacher=&student=',
         getOne: 'GET /api/reviews/:id',
-        updateOwn: 'PUT /api/reviews/:id',
-        delete: 'DELETE /api/reviews/:id',
-        listForGig: 'GET /api/gigs/:gigId/reviews',
-        getMyForGig: 'GET /api/gigs/:gigId/reviews/me',
-        createForGig: 'POST /api/gigs/:gigId/reviews'
+        updateOwn: 'PUT /api/reviews/:id (Protected)',
+        delete: 'DELETE /api/reviews/:id (Protected)'
       },
       payments: {
-        init: 'POST /api/payments/init',
+        init: 'POST /api/payments/init (Student)',
         status: 'GET /api/payments/status/:gigId',
         success: 'POST /api/payments/success/:tran_id',
         fail: 'POST /api/payments/fail/:tran_id',
         cancel: 'POST /api/payments/cancel/:tran_id',
         ipn: 'POST /api/payments/ipn'
+      },
+      uploads: {
+        uploadImage: 'POST /api/uploads/image (Protected)',
+        uploadVideo: 'POST /api/uploads/video (Protected)',
+        uploadGigThumbnail: 'POST /api/uploads/gig-thumbnail (Protected)',
+        deleteGigThumbnail: 'DELETE /api/uploads/gig-thumbnail (Protected)'
       },
       wallet: {
         balance: 'GET /api/wallet/balance (Teacher)',
@@ -190,14 +219,107 @@ app.get('/', (req, res) => {
         approveWithdrawal: 'PUT /api/wallet/admin/withdrawals/:id/approve (Admin)',
         rejectWithdrawal: 'PUT /api/wallet/admin/withdrawals/:id/reject (Admin)',
         stats: 'GET /api/wallet/admin/stats (Admin)'
+      },
+      admin: {
+        listUsers: 'GET /api/admin/users (Admin)',
+        getUser: 'GET /api/admin/users/:id (Admin)',
+        listActivities: 'GET /api/admin/activities (Admin)',
+        getUserActivities: 'GET /api/admin/users/:id/activities (Admin)',
+        classAnalytics: 'GET /api/admin/analytics/classes (Admin)'
       }
-    }
+    },
+    note: 'All endpoints starting with /api require authentication except health checks'
   });
 });
 
 // Health check routes (before authentication)
 app.use('/health', healthRoutes);
 app.use('/api/health', healthRoutes);
+
+// API root endpoint - list available API endpoints
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'EduConnect API',
+    version: '1.0.0',
+    baseUrl: `${req.protocol}://${req.get('host')}/api`,
+    endpoints: {
+      auth: {
+        register: 'POST /api/auth/register',
+        login: 'POST /api/auth/login',
+        updateRole: 'PUT /api/auth/role (Admin)',
+        updateMyRole: 'PUT /api/auth/me/role',
+        clerkSync: 'POST /api/auth/clerk-sync'
+      },
+      users: {
+        getUser: 'GET /api/users/:id',
+        getUserGigs: 'GET /api/users/:id/gigs',
+        updateMe: 'PUT /api/users/me (Protected)'
+      },
+      gigs: {
+        getAllGigs: 'GET /api/gigs',
+        getGig: 'GET /api/gigs/:id',
+        createGig: 'POST /api/gigs (Teacher)',
+        updateGig: 'PUT /api/gigs/:id (Teacher)',
+        deleteGig: 'DELETE /api/gigs/:id (Teacher)',
+        getGigReviews: 'GET /api/gigs/:gigId/reviews',
+        getMyReviewForGig: 'GET /api/gigs/:gigId/reviews/me',
+        createReviewForGig: 'POST /api/gigs/:gigId/reviews'
+      },
+      bookings: {
+        getAllBookings: 'GET /api/bookings (Protected)',
+        getBooking: 'GET /api/bookings/:id (Protected)',
+        createBooking: 'POST /api/bookings (Student)',
+        updateBookingStatus: 'PUT /api/bookings/:id (Teacher)',
+        getBookingByRoom: 'GET /api/bookings/room/:roomId (Protected)',
+        markAttendance: 'POST /api/bookings/:id/attendance (Student)'
+      },
+      reviews: {
+        list: 'GET /api/reviews?gig=&teacher=&student=',
+        getOne: 'GET /api/reviews/:id',
+        updateOwn: 'PUT /api/reviews/:id (Protected)',
+        delete: 'DELETE /api/reviews/:id (Protected)'
+      },
+      payments: {
+        init: 'POST /api/payments/init (Student)',
+        status: 'GET /api/payments/status/:gigId',
+        bookingStatus: 'GET /api/payments/booking-status/:bookingId',
+        success: 'POST /api/payments/success/:tran_id',
+        fail: 'POST /api/payments/fail/:tran_id',
+        cancel: 'POST /api/payments/cancel/:tran_id',
+        ipn: 'POST /api/payments/ipn'
+      },
+      uploads: {
+        uploadImage: 'POST /api/uploads/image (Protected)',
+        uploadVideo: 'POST /api/uploads/video (Protected)',
+        uploadGigThumbnail: 'POST /api/uploads/gig-thumbnail (Protected)',
+        deleteGigThumbnail: 'DELETE /api/uploads/gig-thumbnail (Protected)'
+      },
+      wallet: {
+        balance: 'GET /api/wallet/balance (Teacher)',
+        transactions: 'GET /api/wallet/transactions (Teacher)',
+        withdraw: 'POST /api/wallet/withdraw (Teacher)',
+        pendingWithdrawals: 'GET /api/wallet/admin/withdrawals/pending (Admin)',
+        approveWithdrawal: 'PUT /api/wallet/admin/withdrawals/:id/approve (Admin)',
+        rejectWithdrawal: 'PUT /api/wallet/admin/withdrawals/:id/reject (Admin)',
+        stats: 'GET /api/wallet/admin/stats (Admin)'
+      },
+      admin: {
+        listUsers: 'GET /api/admin/users (Admin)',
+        getUser: 'GET /api/admin/users/:id (Admin)',
+        listActivities: 'GET /api/admin/activities (Admin)',
+        getUserActivities: 'GET /api/admin/users/:id/activities (Admin)',
+        classAnalytics: 'GET /api/admin/analytics/classes (Admin)'
+      },
+      health: {
+        basic: 'GET /api/health',
+        detailed: 'GET /api/health/detailed',
+        ready: 'GET /api/health/ready',
+        live: 'GET /api/health/live'
+      }
+    },
+    note: 'All endpoints starting with /api require authentication except health checks'
+  });
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -230,25 +352,25 @@ const connectDB = async () => {
       socketTimeoutMS: 45000,
       bufferCommands: false
     });
-    
+
     console.log(`MongoDB Connected: ${conn.connection.host}`);
-    
+
     // Handle connection events
     mongoose.connection.on('error', (err) => {
       console.error('MongoDB connection error:', err);
     });
-    
+
     mongoose.connection.on('disconnected', () => {
       console.warn('MongoDB disconnected');
     });
-    
+
     // Graceful shutdown
     process.on('SIGINT', async () => {
       await mongoose.connection.close();
       console.log('MongoDB connection closed through app termination');
       process.exit(0);
     });
-    
+
   } catch (error) {
     console.error('MongoDB connection failed:', error);
     process.exit(1);

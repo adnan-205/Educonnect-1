@@ -1,0 +1,185 @@
+version: '3.8'
+
+# Production-ready Jitsi Meet self-hosted configuration
+# This setup includes proper security, authentication, and HTTPS support
+
+services:
+  # Frontend - Jitsi Meet Web Interface
+  jitsi-web:
+    image: jitsi/web:stable
+    container_name: educonnect-jitsi-web
+    restart: unless-stopped
+    ports:
+      - "${JITSI_WEB_PORT:-8443}:443"
+      - "${JITSI_WEB_HTTP_PORT:-8080}:80"
+    volumes:
+      - jitsi-web-config:/config:Z
+      - jitsi-web-crontabs:/var/spool/cron/crontabs:Z
+      - jitsi-transcripts:/usr/share/jitsi-meet/transcripts:Z
+    environment:
+      - ENABLE_AUTH=${JITSI_ENABLE_AUTH:-1}
+      - ENABLE_GUESTS=${JITSI_ENABLE_GUESTS:-0}
+      - ENABLE_LETSENCRYPT=${JITSI_ENABLE_LETSENCRYPT:-0}
+      - ENABLE_HTTP_REDIRECT=${JITSI_ENABLE_HTTP_REDIRECT:-1}
+      - ENABLE_HSTS=${JITSI_ENABLE_HSTS:-1}
+      - ENABLE_XMPP_WEBSOCKET=${JITSI_ENABLE_XMPP_WEBSOCKET:-1}
+      - DISABLE_HTTPS=${JITSI_DISABLE_HTTPS:-0}
+      - JICOFO_AUTH_USER=${JITSI_JICOFO_AUTH_USER:-focus}
+      - LETSENCRYPT_DOMAIN=${JITSI_DOMAIN}
+      - LETSENCRYPT_EMAIL=${JITSI_LETSENCRYPT_EMAIL}
+      - PUBLIC_URL=${JITSI_PUBLIC_URL:-https://${JITSI_DOMAIN}}
+      - XMPP_DOMAIN=${JITSI_XMPP_DOMAIN:-${JITSI_DOMAIN}}
+      - XMPP_AUTH_DOMAIN=${JITSI_XMPP_AUTH_DOMAIN:-auth.${JITSI_DOMAIN}}
+      - XMPP_BOSH_URL_BASE=${JITSI_XMPP_BOSH_URL_BASE:-https://${JITSI_DOMAIN}/http-bind}
+      - XMPP_GUEST_DOMAIN=${JITSI_XMPP_GUEST_DOMAIN:-guest.${JITSI_DOMAIN}}
+      - XMPP_MUC_DOMAIN=${JITSI_XMPP_MUC_DOMAIN:-conference.${JITSI_DOMAIN}}
+      - XMPP_RECORDER_DOMAIN=${JITSI_XMPP_RECORDER_DOMAIN:-recorder.${JITSI_DOMAIN}}
+      - ETHERPAD_URL_BASE=${JITSI_ETHERPAD_URL_BASE}
+      - TZ=${TZ:-UTC}
+      - JIBRI_BREWERY_MUC=${JITSI_JIBRI_BREWERY_MUC:-jibribrewery}
+      - JIBRI_PENDING_TIMEOUT=${JITSI_JIBRI_PENDING_TIMEOUT:-90}
+      - JIBRI_XMPP_USER=${JITSI_JIBRI_XMPP_USER:-jibri}
+      - JIBRI_XMPP_PASSWORD=${JITSI_JIBRI_XMPP_PASSWORD}
+      - JIBRI_RECORDER_USER=${JITSI_JIBRI_RECORDER_USER:-recorder}
+      - JIBRI_RECORDER_PASSWORD=${JITSI_JIBRI_RECORDER_PASSWORD}
+      - ENABLE_RECORDING=${JITSI_ENABLE_RECORDING:-0}
+      - ENABLE_FILE_RECORDING_SERVICE=${JITSI_ENABLE_FILE_RECORDING_SERVICE:-0}
+      - ENABLE_LIVE_STREAMING=${JITSI_ENABLE_LIVE_STREAMING:-0}
+    depends_on:
+      - jitsi-prosody
+    networks:
+      - educonnect-network
+
+  # XMPP Server - Prosody
+  jitsi-prosody:
+    image: jitsi/prosody:stable
+    container_name: educonnect-jitsi-prosody
+    restart: unless-stopped
+    expose:
+      - '5222'
+      - '5347'
+      - '5280'
+    volumes:
+      - jitsi-prosody-config:/config:Z
+      - jitsi-prosody-plugins:/prosody-plugins-custom:Z
+    environment:
+      - AUTH_TYPE=${JITSI_AUTH_TYPE:-internal}
+      - ENABLE_AUTH=${JITSI_ENABLE_AUTH:-1}
+      - ENABLE_GUESTS=${JITSI_ENABLE_GUESTS:-0}
+      - ENABLE_LOBBY=${JITSI_ENABLE_LOBBY:-0}
+      - ENABLE_XMPP_WEBSOCKET=${JITSI_ENABLE_XMPP_WEBSOCKET:-1}
+      - XMPP_DOMAIN=${JITSI_XMPP_DOMAIN:-${JITSI_DOMAIN}}
+      - XMPP_AUTH_DOMAIN=${JITSI_XMPP_AUTH_DOMAIN:-auth.${JITSI_DOMAIN}}
+      - XMPP_GUEST_DOMAIN=${JITSI_XMPP_GUEST_DOMAIN:-guest.${JITSI_DOMAIN}}
+      - XMPP_MUC_DOMAIN=${JITSI_XMPP_MUC_DOMAIN:-conference.${JITSI_DOMAIN}}
+      - XMPP_INTERNAL_MUC_DOMAIN=${JITSI_XMPP_INTERNAL_MUC_DOMAIN:-internal.auth.${JITSI_DOMAIN}}
+      - XMPP_RECORDER_DOMAIN=${JITSI_XMPP_RECORDER_DOMAIN:-recorder.${JITSI_DOMAIN}}
+      - JICOFO_COMPONENT_SECRET=${JITSI_JICOFO_COMPONENT_SECRET}
+      - JICOFO_AUTH_USER=${JITSI_JICOFO_AUTH_USER:-focus}
+      - JICOFO_AUTH_PASSWORD=${JITSI_JICOFO_AUTH_PASSWORD}
+      - JVB_AUTH_USER=${JITSI_JVB_AUTH_USER:-jvb}
+      - JVB_AUTH_PASSWORD=${JITSI_JVB_AUTH_PASSWORD}
+      - JIGASI_XMPP_USER=${JITSI_JIGASI_XMPP_USER:-jigasi}
+      - JIGASI_XMPP_PASSWORD=${JITSI_JIGASI_XMPP_PASSWORD}
+      - JIBRI_XMPP_USER=${JITSI_JIBRI_XMPP_USER:-jibri}
+      - JIBRI_XMPP_PASSWORD=${JITSI_JIBRI_XMPP_PASSWORD}
+      - JIBRI_RECORDER_USER=${JITSI_JIBRI_RECORDER_USER:-recorder}
+      - JIBRI_RECORDER_PASSWORD=${JITSI_JIBRI_RECORDER_PASSWORD}
+      - JWT_APP_ID=${JITSI_JWT_APP_ID}
+      - JWT_APP_SECRET=${JITSI_JWT_APP_SECRET}
+      - JWT_ACCEPTED_ISSUERS=${JITSI_JWT_ACCEPTED_ISSUERS}
+      - JWT_ACCEPTED_AUDIENCES=${JITSI_JWT_ACCEPTED_AUDIENCES}
+      - JWT_ASAP_KEYSERVER=${JITSI_JWT_ASAP_KEYSERVER}
+      - JWT_ALLOW_EMPTY=${JITSI_JWT_ALLOW_EMPTY:-0}
+      - JWT_AUTH_TYPE=${JITSI_JWT_AUTH_TYPE}
+      - JWT_TOKEN_AUTH_MODULE=${JITSI_JWT_TOKEN_AUTH_MODULE}
+      - LOG_LEVEL=${JITSI_LOG_LEVEL:-info}
+      - TZ=${TZ:-UTC}
+    networks:
+      educonnect-network:
+        aliases:
+          - xmpp.${JITSI_XMPP_DOMAIN:-${JITSI_DOMAIN}}
+
+  # Focus Component - Jicofo
+  jitsi-jicofo:
+    image: jitsi/jicofo:stable
+    container_name: educonnect-jitsi-jicofo
+    restart: unless-stopped
+    volumes:
+      - jitsi-jicofo-config:/config:Z
+    environment:
+      - ENABLE_AUTH=${JITSI_ENABLE_AUTH:-1}
+      - XMPP_DOMAIN=${JITSI_XMPP_DOMAIN:-${JITSI_DOMAIN}}
+      - XMPP_AUTH_DOMAIN=${JITSI_XMPP_AUTH_DOMAIN:-auth.${JITSI_DOMAIN}}
+      - XMPP_INTERNAL_MUC_DOMAIN=${JITSI_XMPP_INTERNAL_MUC_DOMAIN:-internal.auth.${JITSI_DOMAIN}}
+      - XMPP_SERVER=${JITSI_XMPP_SERVER:-jitsi-prosody}
+      - JICOFO_COMPONENT_SECRET=${JITSI_JICOFO_COMPONENT_SECRET}
+      - JICOFO_AUTH_USER=${JITSI_JICOFO_AUTH_USER:-focus}
+      - JICOFO_AUTH_PASSWORD=${JITSI_JICOFO_AUTH_PASSWORD}
+      - JVB_BREWERY_MUC=${JITSI_JVB_BREWERY_MUC:-jvbbrewery}
+      - JIGASI_BREWERY_MUC=${JITSI_JIGASI_BREWERY_MUC:-jigasibrewery}
+      - JIGASI_SIP_URI=${JITSI_JIGASI_SIP_URI}
+      - JIBRI_BREWERY_MUC=${JITSI_JIBRI_BREWERY_MUC:-jibribrewery}
+      - JIBRI_PENDING_TIMEOUT=${JITSI_JIBRI_PENDING_TIMEOUT:-90}
+      - TZ=${TZ:-UTC}
+      - JICOFO_ENABLE_BRIDGE_HEALTH_CHECKS=${JITSI_JICOFO_ENABLE_BRIDGE_HEALTH_CHECKS:-true}
+      - JICOFO_CONF_INITIAL_PARTICIPANT_WAIT_TIMEOUT=${JITSI_JICOFO_CONF_INITIAL_PARTICIPANT_WAIT_TIMEOUT:-20000}
+      - JICOFO_CONF_SINGLE_PARTICIPANT_TIMEOUT=${JITSI_JICOFO_CONF_SINGLE_PARTICIPANT_TIMEOUT:-20000}
+      - JICOFO_ENABLE_HEALTH_CHECKS=${JITSI_JICOFO_ENABLE_HEALTH_CHECKS:-true}
+    depends_on:
+      - jitsi-prosody
+    networks:
+      - educonnect-network
+
+  # Video Bridge - JVB
+  jitsi-jvb:
+    image: jitsi/jvb:stable
+    container_name: educonnect-jitsi-jvb
+    restart: unless-stopped
+    ports:
+      - "${JITSI_JVB_PORT:-10000}:10000/udp"
+      - "${JITSI_JVB_TCP_PORT:-4443}:4443/tcp"
+    volumes:
+      - jitsi-jvb-config:/config:Z
+    environment:
+      - DOCKER_HOST_ADDRESS=${JITSI_DOCKER_HOST_ADDRESS}
+      - XMPP_AUTH_DOMAIN=${JITSI_XMPP_AUTH_DOMAIN:-auth.${JITSI_DOMAIN}}
+      - XMPP_INTERNAL_MUC_DOMAIN=${JITSI_XMPP_INTERNAL_MUC_DOMAIN:-internal.auth.${JITSI_DOMAIN}}
+      - XMPP_SERVER=${JITSI_XMPP_SERVER:-jitsi-prosody}
+      - JVB_AUTH_USER=${JITSI_JVB_AUTH_USER:-jvb}
+      - JVB_AUTH_PASSWORD=${JITSI_JVB_AUTH_PASSWORD}
+      - JVB_BREWERY_MUC=${JITSI_JVB_BREWERY_MUC:-jvbbrewery}
+      - JVB_PORT=${JITSI_JVB_PORT:-10000}
+      - JVB_TCP_HARVESTER_DISABLED=${JITSI_JVB_TCP_HARVESTER_DISABLED:-false}
+      - JVB_TCP_PORT=${JITSI_JVB_TCP_PORT:-4443}
+      - JVB_TCP_MAPPED_PORT=${JITSI_JVB_TCP_MAPPED_PORT:-4443}
+      - JVB_STUN_SERVERS=${JITSI_JVB_STUN_SERVERS:-meet-jit-si-turnrelay.jitsi.net:443}
+      - JVB_ENABLE_APIS=${JITSI_JVB_ENABLE_APIS:-rest,xmpp}
+      - JVB_WS_DOMAIN=${JITSI_WS_DOMAIN:-${JITSI_DOMAIN}}
+      - JVB_WS_SERVER_ID=${JITSI_WS_SERVER_ID}
+      - PUBLIC_URL=${JITSI_PUBLIC_URL:-https://${JITSI_DOMAIN}}
+      - TZ=${TZ:-UTC}
+    depends_on:
+      - jitsi-prosody
+    networks:
+      - educonnect-network
+
+networks:
+  educonnect-network:
+    external: true
+
+volumes:
+  jitsi-prosody-config:
+    driver: local
+  jitsi-prosody-plugins:
+    driver: local
+  jitsi-web-config:
+    driver: local
+  jitsi-jicofo-config:
+    driver: local
+  jitsi-jvb-config:
+    driver: local
+  jitsi-web-crontabs:
+    driver: local
+  jitsi-transcripts:
+    driver: local

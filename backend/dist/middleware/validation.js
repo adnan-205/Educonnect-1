@@ -82,21 +82,54 @@ exports.validateGigCreation = [
 ];
 // Booking validation rules
 exports.validateBookingCreation = [
-    (0, express_validator_1.body)('gigId')
-        .isMongoId()
-        .withMessage('Invalid gig ID'),
-    (0, express_validator_1.body)('scheduledDate')
-        .isISO8601()
-        .custom((value) => {
-        const date = new Date(value);
-        if (isNaN(date.getTime())) {
-            throw new Error('Invalid date format');
+    // Validate that we have a valid gig ID in either `gig` or `gigId`
+    (0, express_validator_1.body)().custom((_, { req }) => {
+        const gigId = req.body.gig || req.body.gigId;
+        if (!gigId) {
+            throw new Error('gig is required');
         }
-        if (date <= new Date()) {
-            throw new Error('Scheduled date must be in the future');
+        const isObjectId = /^[a-f\d]{24}$/i.test(gigId);
+        if (!isObjectId) {
+            throw new Error('Invalid gig ID');
         }
         return true;
     }),
+    // Either scheduledAt OR (scheduledDate AND scheduledTime) must be provided
+    (0, express_validator_1.body)().custom((_, { req }) => {
+        const { scheduledAt, scheduledDate, scheduledTime } = req.body || {};
+        if (!scheduledAt && !(scheduledDate && scheduledTime)) {
+            throw new Error('Provide either scheduledAt or scheduledDate and scheduledTime');
+        }
+        return true;
+    }),
+    // Validate scheduledAt if provided
+    (0, express_validator_1.body)('scheduledAt')
+        .optional()
+        .isISO8601()
+        .withMessage('scheduledAt must be a valid ISO date')
+        .custom((value) => {
+        const d = new Date(value);
+        if (isNaN(d.getTime()))
+            throw new Error('scheduledAt is invalid');
+        return true;
+    }),
+    // Validate scheduledDate if provided
+    (0, express_validator_1.body)('scheduledDate')
+        .optional()
+        .isISO8601()
+        .withMessage('scheduledDate must be a valid ISO date'),
+    // Validate scheduledTime if provided (HH:mm)
+    (0, express_validator_1.body)('scheduledTime')
+        .optional()
+        .matches(/^\d{2}:\d{2}$/)
+        .withMessage('scheduledTime must be in HH:mm format'),
+    // Optional IANA timezone string
+    (0, express_validator_1.body)('timeZone')
+        .optional()
+        .isString()
+        .isLength({ min: 1, max: 100 })
+        .withMessage('timeZone must be a non-empty string'),
+    // Optional message
     (0, express_validator_1.body)('message')
         .optional()
         .trim()

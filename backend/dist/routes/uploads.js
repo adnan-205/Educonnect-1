@@ -35,4 +35,6 @@ const videoUpload = (0, multer_1.default)({
 });
 router.post('/image', auth_1.protect, imageUpload.single('file'), uploads_1.uploadImage);
 router.post('/video', auth_1.protect, videoUpload.single('file'), uploads_1.uploadVideo);
+router.post('/gig-thumbnail', auth_1.protect, imageUpload.single('file'), uploads_1.uploadGigThumbnail);
+router.delete('/gig-thumbnail', auth_1.protect, uploads_1.deleteGigThumbnail);
 exports.default = router;

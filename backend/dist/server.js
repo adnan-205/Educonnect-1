@@ -18,6 +18,10 @@ const bookings_1 = __importDefault(require("./routes/bookings"));
 const users_1 = __importDefault(require("./routes/users"));
 const uploads_1 = __importDefault(require("./routes/uploads"));
 const health_1 = __importDefault(require("./routes/health"));
+const payments_1 = __importDefault(require("./routes/payments"));
+const reviews_1 = __importDefault(require("./routes/reviews"));
+const wallet_1 = __importDefault(require("./routes/wallet"));
+const admin_1 = __importDefault(require("./routes/admin"));
 // Load env vars
 dotenv_1.default.config();
 // Create Express app
@@ -83,10 +87,18 @@ const allowedOriginsFromEnv = corsEnv
 const devOriginRegex = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.[0-9]{1,3}\.[0-9]{1,3}|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}):\d+$/;
 // Render.com specific patterns
 const renderOriginRegex = /^https:\/\/.*\.onrender\.com$/;
+// Vercel specific patterns
+const vercelOriginRegex = /^https:\/\/.*\.vercel\.app$/;
+// SSLCommerz origins (sandbox and live)
+const sslcommerzOriginRegex = /^https:\/\/(sandbox|securepay)\.sslcommerz\.com$/;
 const corsOptions = {
     origin: (origin, callback) => {
         // Allow same-origin or non-browser requests (no origin)
         if (!origin)
+            return callback(null, true);
+        // Some providers (payment redirects/form posts, file://) use literal 'null' origin.
+        // Allow it to enable gateway callbacks like SSLCommerz success/fail/cancel.
+        if (origin === 'null')
             return callback(null, true);
         // Allow configured origins
         if (allowedOriginsFromEnv.includes(origin))
@@ -98,6 +110,12 @@ const corsOptions = {
         // Allow Render.com subdomains
         if (renderOriginRegex.test(origin))
             return callback(null, true);
+        // Allow Vercel subdomains
+        if (vercelOriginRegex.test(origin))
+            return callback(null, true);
+        // Allow SSLCommerz gateways to POST callbacks
+        if (sslcommerzOriginRegex.test(origin))
+            return callback(null, true);
         return callback(new Error(`Not allowed by CORS: ${origin}`));
     },
     credentials: true,
@@ -106,8 +124,9 @@ const corsOptions = {
 };
 app.use((0, cors_1.default)(corsOptions));
 // Enhanced rate limiting with configurable options
+const isDev = process.env.NODE_ENV === 'development';
 const rateLimitWindow = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'); // 15 minutes default
-const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100');
+const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (isDev ? '1000' : '100'));
 const limiter = (0, express_rate_limit_1.default)({
     windowMs: rateLimitWindow,
     max: rateLimitMax,
@@ -118,6 +137,9 @@ const limiter = (0, express_rate_limit_1.default)({
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
+        // In development, skip rate limiting entirely to avoid disrupting local testing
+        if (isDev)
+            return true;
         // Skip rate limiting for health checks
         return req.path === '/health' || req.path === '/api/health';
     }
@@ -127,36 +149,182 @@ app.use(limiter);
 app.get('/', (req, res) => {
     res.json({
         message: 'Welcome to EduConnect API',
+        version: '1.0.0',
+        baseUrl: `${req.protocol}://${req.get('host')}`,
         endpoints: {
+            health: {
+                basic: 'GET /health',
+                detailed: 'GET /health/detailed',
+                ready: 'GET /health/ready',
+                live: 'GET /health/live'
+            },
             auth: {
                 register: 'POST /api/auth/register',
-                login: 'POST /api/auth/login'
+                login: 'POST /api/auth/login',
+                updateRole: 'PUT /api/auth/role (Admin)',
+                updateMyRole: 'PUT /api/auth/me/role',
+                clerkSync: 'POST /api/auth/clerk-sync'
+            },
+            users: {
+                getUser: 'GET /api/users/:id',
+                getUserGigs: 'GET /api/users/:id/gigs',
+                updateMe: 'PUT /api/users/me (Protected)'
             },
             gigs: {
                 getAllGigs: 'GET /api/gigs',
                 getGig: 'GET /api/gigs/:id',
-                createGig: 'POST /api/gigs',
-                updateGig: 'PUT /api/gigs/:id',
-                deleteGig: 'DELETE /api/gigs/:id'
+                createGig: 'POST /api/gigs (Teacher)',
+                updateGig: 'PUT /api/gigs/:id (Teacher)',
+                deleteGig: 'DELETE /api/gigs/:id (Teacher)',
+                getGigReviews: 'GET /api/gigs/:gigId/reviews',
+                getMyReviewForGig: 'GET /api/gigs/:gigId/reviews/me',
+                createReviewForGig: 'POST /api/gigs/:gigId/reviews'
             },
             bookings: {
-                getAllBookings: 'GET /api/bookings',
-                getBooking: 'GET /api/bookings/:id',
-                createBooking: 'POST /api/bookings',
-                updateBookingStatus: 'PUT /api/bookings/:id'
+                getAllBookings: 'GET /api/bookings (Protected)',
+                getBooking: 'GET /api/bookings/:id (Protected)',
+                createBooking: 'POST /api/bookings (Student)',
+                updateBookingStatus: 'PUT /api/bookings/:id (Teacher)',
+                getBookingByRoom: 'GET /api/bookings/room/:roomId (Protected)',
+                markAttendance: 'POST /api/bookings/:id/attendance (Student)'
+            },
+            reviews: {
+                list: 'GET /api/reviews?gig=&teacher=&student=',
+                getOne: 'GET /api/reviews/:id',
+                updateOwn: 'PUT /api/reviews/:id (Protected)',
+                delete: 'DELETE /api/reviews/:id (Protected)'
+            },
+            payments: {
+                init: 'POST /api/payments/init (Student)',
+                status: 'GET /api/payments/status/:gigId',
+                success: 'POST /api/payments/success/:tran_id',
+                fail: 'POST /api/payments/fail/:tran_id',
+                cancel: 'POST /api/payments/cancel/:tran_id',
+                ipn: 'POST /api/payments/ipn'
+            },
+            uploads: {
+                uploadImage: 'POST /api/uploads/image (Protected)',
+                uploadVideo: 'POST /api/uploads/video (Protected)',
+                uploadGigThumbnail: 'POST /api/uploads/gig-thumbnail (Protected)',
+                deleteGigThumbnail: 'DELETE /api/uploads/gig-thumbnail (Protected)'
+            },
+            wallet: {
+                balance: 'GET /api/wallet/balance (Teacher)',
+                transactions: 'GET /api/wallet/transactions (Teacher)',
+                withdraw: 'POST /api/wallet/withdraw (Teacher)',
+                pendingWithdrawals: 'GET /api/wallet/admin/withdrawals/pending (Admin)',
+                approveWithdrawal: 'PUT /api/wallet/admin/withdrawals/:id/approve (Admin)',
+                rejectWithdrawal: 'PUT /api/wallet/admin/withdrawals/:id/reject (Admin)',
+                stats: 'GET /api/wallet/admin/stats (Admin)'
+            },
+            admin: {
+                listUsers: 'GET /api/admin/users (Admin)',
+                getUser: 'GET /api/admin/users/:id (Admin)',
+                listActivities: 'GET /api/admin/activities (Admin)',
+                getUserActivities: 'GET /api/admin/users/:id/activities (Admin)',
+                classAnalytics: 'GET /api/admin/analytics/classes (Admin)'
             }
-        }
+        },
+        note: 'All endpoints starting with /api require authentication except health checks'
     });
 });
 // Health check routes (before authentication)
 app.use('/health', health_1.default);
 app.use('/api/health', health_1.default);
+// API root endpoint - list available API endpoints
+app.get('/api', (req, res) => {
+    res.json({
+        message: 'EduConnect API',
+        version: '1.0.0',
+        baseUrl: `${req.protocol}://${req.get('host')}/api`,
+        endpoints: {
+            auth: {
+                register: 'POST /api/auth/register',
+                login: 'POST /api/auth/login',
+                updateRole: 'PUT /api/auth/role (Admin)',
+                updateMyRole: 'PUT /api/auth/me/role',
+                clerkSync: 'POST /api/auth/clerk-sync'
+            },
+            users: {
+                getUser: 'GET /api/users/:id',
+                getUserGigs: 'GET /api/users/:id/gigs',
+                updateMe: 'PUT /api/users/me (Protected)'
+            },
+            gigs: {
+                getAllGigs: 'GET /api/gigs',
+                getGig: 'GET /api/gigs/:id',
+                createGig: 'POST /api/gigs (Teacher)',
+                updateGig: 'PUT /api/gigs/:id (Teacher)',
+                deleteGig: 'DELETE /api/gigs/:id (Teacher)',
+                getGigReviews: 'GET /api/gigs/:gigId/reviews',
+                getMyReviewForGig: 'GET /api/gigs/:gigId/reviews/me',
+                createReviewForGig: 'POST /api/gigs/:gigId/reviews'
+            },
+            bookings: {
+                getAllBookings: 'GET /api/bookings (Protected)',
+                getBooking: 'GET /api/bookings/:id (Protected)',
+                createBooking: 'POST /api/bookings (Student)',
+                updateBookingStatus: 'PUT /api/bookings/:id (Teacher)',
+                getBookingByRoom: 'GET /api/bookings/room/:roomId (Protected)',
+                markAttendance: 'POST /api/bookings/:id/attendance (Student)'
+            },
+            reviews: {
+                list: 'GET /api/reviews?gig=&teacher=&student=',
+                getOne: 'GET /api/reviews/:id',
+                updateOwn: 'PUT /api/reviews/:id (Protected)',
+                delete: 'DELETE /api/reviews/:id (Protected)'
+            },
+            payments: {
+                init: 'POST /api/payments/init (Student)',
+                status: 'GET /api/payments/status/:gigId',
+                bookingStatus: 'GET /api/payments/booking-status/:bookingId',
+                success: 'POST /api/payments/success/:tran_id',
+                fail: 'POST /api/payments/fail/:tran_id',
+                cancel: 'POST /api/payments/cancel/:tran_id',
+                ipn: 'POST /api/payments/ipn'
+            },
+            uploads: {
+                uploadImage: 'POST /api/uploads/image (Protected)',
+                uploadVideo: 'POST /api/uploads/video (Protected)',
+                uploadGigThumbnail: 'POST /api/uploads/gig-thumbnail (Protected)',
+                deleteGigThumbnail: 'DELETE /api/uploads/gig-thumbnail (Protected)'
+            },
+            wallet: {
+                balance: 'GET /api/wallet/balance (Teacher)',
+                transactions: 'GET /api/wallet/transactions (Teacher)',
+                withdraw: 'POST /api/wallet/withdraw (Teacher)',
+                pendingWithdrawals: 'GET /api/wallet/admin/withdrawals/pending (Admin)',
+                approveWithdrawal: 'PUT /api/wallet/admin/withdrawals/:id/approve (Admin)',
+                rejectWithdrawal: 'PUT /api/wallet/admin/withdrawals/:id/reject (Admin)',
+                stats: 'GET /api/wallet/admin/stats (Admin)'
+            },
+            admin: {
+                listUsers: 'GET /api/admin/users (Admin)',
+                getUser: 'GET /api/admin/users/:id (Admin)',
+                listActivities: 'GET /api/admin/activities (Admin)',
+                getUserActivities: 'GET /api/admin/users/:id/activities (Admin)',
+                classAnalytics: 'GET /api/admin/analytics/classes (Admin)'
+            },
+            health: {
+                basic: 'GET /api/health',
+                detailed: 'GET /api/health/detailed',
+                ready: 'GET /api/health/ready',
+                live: 'GET /api/health/live'
+            }
+        },
+        note: 'All endpoints starting with /api require authentication except health checks'
+    });
+});
 // Routes
 app.use('/api/auth', auth_1.default);
 app.use('/api/gigs', gigs_1.default);
 app.use('/api/bookings', bookings_1.default);
 app.use('/api/users', users_1.default);
 app.use('/api/uploads', uploads_1.default);
+app.use('/api/payments', payments_1.default);
+app.use('/api/reviews', reviews_1.default);
+app.use('/api/wallet', wallet_1.default);
+app.use('/api/admin', admin_1.default);
 // Add error logging
 app.use((err, req, res, next) => {
     console.error('Error:', err);

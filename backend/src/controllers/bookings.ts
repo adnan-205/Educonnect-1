@@ -65,14 +65,16 @@ export const markAttendance = async (req: Request, res: Response) => {
 
   // Helper to generate a meeting link from room ID
   const generateMeetingLink = (roomId: string): string => {
-    // Always use meet.jit.si over HTTPS to ensure no login/prelogin prompts from self-hosted instances
+    // Use self-hosted Jitsi domain if configured, otherwise fallback to meet.jit.si
+    const jitsiDomain = process.env.JITSI_DOMAIN || 'meet.jit.si';
+    const scheme = jitsiDomain.includes('localhost') || jitsiDomain.includes('127.0.0.1') ? 'http' : 'https';
     const hash = [
       'config.prejoinPageEnabled=false',
       'config.disableDeepLinking=true',
       'config.enableWelcomePage=false'
       // interfaceConfig options can also be added if desired, e.g. hiding watermarks
     ].join('&');
-    return `https://meet.jit.si/${roomId}#${hash}`;
+    return `${scheme}://${jitsiDomain}/${roomId}#${hash}`;
   };
 
 // Get all bookings

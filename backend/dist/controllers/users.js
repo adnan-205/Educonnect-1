@@ -6,11 +6,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateMe = exports.getUserGigs = exports.getUser = void 0;
 const User_1 = __importDefault(require("../models/User"));
 const Gig_1 = __importDefault(require("../models/Gig"));
+const activityLogger_1 = require("../utils/activityLogger");
 // GET /api/users/:id - public profile basics
 const getUser = async (req, res) => {
     try {
         const user = await User_1.default.findById(req.params.id)
-            .select('name email role profile createdAt avatar coverImage phone location headline');
+            .select('name email role profile createdAt avatar coverImage phone location headline teacherRatingAverage teacherReviewsCount');
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
@@ -29,7 +30,7 @@ const getUserGigs = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
         const gigs = await Gig_1.default.find({ teacher: user._id })
-            .select('title price category duration thumbnailUrl createdAt');
+            .select('title price category duration thumbnailUrl createdAt averageRating reviewsCount');
         res.json({ success: true, count: gigs.length, data: gigs });
     }
     catch (err) {
@@ -59,6 +60,15 @@ const updateMe = async (req, res) => {
             patch['avatar'] = req.body.avatar;
         if (typeof req.body.coverImage === 'string')
             patch['coverImage'] = req.body.coverImage;
+        // Onboarding fields
+        if (typeof req.body.marketingSource === 'string')
+            patch['marketingSource'] = req.body.marketingSource;
+        if (typeof req.body.isOnboarded === 'boolean')
+            patch['isOnboarded'] = req.body.isOnboarded;
+        // Optional role update (limit to known roles)
+        if (typeof req.body.role === 'string' && ['student', 'teacher', 'admin'].includes(req.body.role)) {
+            patch['role'] = req.body.role;
+        }
         // Nested profile fields via dot-notation (merges without wiping unspecified keys)
         const p = req.body.profile || {};
         if (p && typeof p === 'object') {
@@ -86,7 +96,18 @@ const updateMe = async (req, res) => {
                 patch['profile.timezone'] = p.timezone;
         }
         const updated = await User_1.default.findByIdAndUpdate(userId, { $set: patch }, { new: true })
-            .select('name email role profile avatar coverImage phone location headline');
+            .select('name email role isOnboarded marketingSource profile avatar coverImage phone location headline');
+        try {
+            await (0, activityLogger_1.logActivity)({
+                userId,
+                action: 'user.updateMe',
+                targetType: 'User',
+                targetId: userId,
+                metadata: { changedKeys: Object.keys(patch) },
+                req,
+            });
+        }
+        catch (_a) { }
         res.json({ success: true, data: updated });
     }
     catch (err) {

@@ -67,13 +67,23 @@ const userSchema = new mongoose_1.default.Schema({
     },
     role: {
         type: String,
-        enum: ['student', 'teacher'],
+        enum: ['student', 'teacher', 'admin'],
         required: true,
     },
+    // Onboarding status and marketing attribution
+    isOnboarded: {
+        type: Boolean,
+        default: false,
+    },
+    marketingSource: { type: String },
     // Optional contact and headline
     phone: { type: String },
     location: { type: String },
     headline: { type: String },
+    // Teacher rating aggregates
+    teacherRatingSum: { type: Number, default: 0 },
+    teacherReviewsCount: { type: Number, default: 0 },
+    teacherRatingAverage: { type: Number, default: 0, min: 0, max: 5 },
     avatar: {
         type: String,
     },
@@ -95,6 +105,11 @@ const userSchema = new mongoose_1.default.Schema({
         hourlyRate: Number,
         availability: String,
         timezone: String,
+    },
+    // Wallet reference for teachers
+    wallet: {
+        type: mongoose_1.default.Schema.Types.ObjectId,
+        ref: 'Wallet',
     },
 }, {
     timestamps: true,

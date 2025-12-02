@@ -33,7 +33,22 @@ const gigSchema = new mongoose_1.default.Schema({
         type: Number,
         required: [true, 'Please add duration in minutes'],
     },
+    averageRating: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 5,
+        index: true,
+    },
+    reviewsCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
     thumbnailUrl: {
+        type: String,
+    },
+    thumbnailPublicId: {
         type: String,
     },
     availability: {

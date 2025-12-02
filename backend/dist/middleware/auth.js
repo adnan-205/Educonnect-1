@@ -20,7 +20,11 @@ const protect = async (req, res, next) => {
     }
     try {
         const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
-        req.user = await User_1.default.findById(decoded.id);
+        const user = await User_1.default.findById(decoded.id);
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'Not authorized: user not found' });
+        }
+        req.user = user;
         next();
     }
     catch (err) {
