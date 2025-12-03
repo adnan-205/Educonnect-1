@@ -49,7 +49,7 @@ export default function GigsList() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
       {gigsList.map((gig) => (
         <Card key={gig._id} className="overflow-hidden">
           {/* Thumbnail */}
@@ -65,18 +65,18 @@ export default function GigsList() {
             )}
           </div>
           <CardHeader>
-            <h3 className="text-lg font-semibold">{gig.title}</h3>
-            <p className="text-sm text-gray-500">by {gig.teacher.name}</p>
-            <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+            <h3 className="text-base sm:text-lg font-semibold line-clamp-2">{gig.title}</h3>
+            <p className="text-xs sm:text-sm text-gray-500">by {gig.teacher.name}</p>
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mt-1">
+              <Star className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 fill-yellow-500" />
               <span>{(gig.averageRating ?? 0).toFixed(1)} / 5</span>
               <span className="text-gray-400">·</span>
               <span>{gig.reviewsCount ?? 0} reviews</span>
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm mb-2">{gig.description}</p>
-            <div className="flex justify-between text-sm">
+            <p className="text-xs sm:text-sm mb-2 line-clamp-2">{gig.description}</p>
+            <div className="flex flex-col sm:flex-row justify-between gap-1 sm:gap-0 text-xs sm:text-sm">
               <span>Duration: {gig.duration} mins</span>
               <span className="font-semibold">${gig.price}</span>
             </div>
@@ -89,11 +89,11 @@ export default function GigsList() {
           <CardFooter>
             <div className="grid grid-cols-2 gap-2 w-full">
               <Link href={`/gigs/${gig._id}`} className="col-span-1">
-                <Button variant="outline" className="w-full">View Details</Button>
+                <Button variant="outline" className="w-full text-xs sm:text-sm">View Details</Button>
               </Link>
               {user?.role === 'student' && (
                 <Link href={`/book/${gig._id}`} className="col-span-1">
-                  <Button className="w-full">Book Now</Button>
+                  <Button className="w-full text-xs sm:text-sm">Book Now</Button>
                 </Link>
               )}
             </div>

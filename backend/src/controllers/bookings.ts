@@ -11,11 +11,11 @@ const slugify = (title: string) => title
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/(^-|-$)+/g, '');
 
-// Helper to generate a secure Jitsi room ID: educonnect-{gigTitleSlug}-{bookingId}-{random16}
+// Helper to generate a secure Jitsi room ID: tutorconnected-{gigTitleSlug}-{bookingId}-{random16}
 const generateMeetingRoomId = (bookingId: string, gigTitle: string): string => {
   const slug = slugify(gigTitle || 'class');
   const rand = crypto.randomBytes(8).toString('hex'); // 16 chars
-  return `educonnect-${slug}-${bookingId}-${rand}`;
+  return `tutorconnected-${slug}-${bookingId}-${rand}`;
 };
 
 // Mark student attendance for a booking
@@ -36,7 +36,7 @@ export const markAttendance = async (req: Request, res: Response) => {
     if (booking.status !== 'accepted') {
       return res.status(400).json({ success: false, message: 'Cannot mark attendance for non-accepted booking' });
     }
-    
+
     // Mark attendance
     (booking as any).attended = true;
     (booking as any).attendedAt = new Date();
@@ -63,19 +63,19 @@ export const markAttendance = async (req: Request, res: Response) => {
   }
 };
 
-  // Helper to generate a meeting link from room ID
-  const generateMeetingLink = (roomId: string): string => {
-    // Use self-hosted Jitsi domain if configured, otherwise fallback to meet.jit.si
-    const jitsiDomain = process.env.JITSI_DOMAIN || 'meet.jit.si';
-    const scheme = jitsiDomain.includes('localhost') || jitsiDomain.includes('127.0.0.1') ? 'http' : 'https';
-    const hash = [
-      'config.prejoinPageEnabled=false',
-      'config.disableDeepLinking=true',
-      'config.enableWelcomePage=false'
-      // interfaceConfig options can also be added if desired, e.g. hiding watermarks
-    ].join('&');
-    return `${scheme}://${jitsiDomain}/${roomId}#${hash}`;
-  };
+// Helper to generate a meeting link from room ID
+const generateMeetingLink = (roomId: string): string => {
+  // Use self-hosted Jitsi domain if configured, otherwise fallback to meet.jit.si
+  const jitsiDomain = process.env.JITSI_DOMAIN || 'meet.jit.si';
+  const scheme = jitsiDomain.includes('localhost') || jitsiDomain.includes('127.0.0.1') ? 'http' : 'https';
+  const hash = [
+    'config.prejoinPageEnabled=false',
+    'config.disableDeepLinking=true',
+    'config.enableWelcomePage=false'
+    // interfaceConfig options can also be added if desired, e.g. hiding watermarks
+  ].join('&');
+  return `${scheme}://${jitsiDomain}/${roomId}#${hash}`;
+};
 
 // Get all bookings
 export const getBookings = async (req: Request, res: Response) => {

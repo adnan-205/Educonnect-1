@@ -29,8 +29,17 @@ export default function PostAuthPage() {
             localStorage.setItem("role", backendUser.role)
           }
           // Determine if onboarding is needed
+          // Only show onboarding if user hasn't completed it yet (isOnboarded is explicitly false or undefined)
+          // If isOnboarded is true, skip onboarding even if other fields are missing (they can be updated later)
+          const isOnboarded = backendUser?.isOnboarded === true
           const role = backendUser?.role || localStorage.getItem("role")
-          const needsOnboarding = !backendUser?.name || !role || backendUser?.isOnboarded !== true
+
+          // Only require onboarding if:
+          // 1. User hasn't been onboarded yet (isOnboarded is not true)
+          // 2. AND user is missing critical info (no role)
+          // Note: name can be updated later, so we don't require it for skipping onboarding
+          const needsOnboarding = !isOnboarded && !role
+
           if (needsOnboarding) {
             router.replace("/onboarding")
             return

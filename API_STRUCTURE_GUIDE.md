@@ -199,3 +199,4 @@ const response = await fetch(`${API_URL}/gigs`); // http://129.212.237.102/api/g
 - `http://129.212.237.102/api/bookings` ✅
 - `http://129.212.237.102/api` ❌ (just the base path)
 
+

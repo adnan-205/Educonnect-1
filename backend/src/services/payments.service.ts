@@ -48,7 +48,7 @@ export class PaymentsService {
       fail_url: `${BASE_URL}/api/payments/fail/${tran_id}`,
       cancel_url: `${BASE_URL}/api/payments/cancel/${tran_id}`,
       ipn_url: `${BASE_URL}/api/payments/ipn`,
-      product_name: 'EduConnect Class',
+      product_name: 'TutorConnected Class',
       product_category: 'Education',
       product_profile: 'service',
       shipping_method: 'NO',

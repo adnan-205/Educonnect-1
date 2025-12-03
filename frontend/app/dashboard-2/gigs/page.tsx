@@ -94,14 +94,14 @@ export default function GigsPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">My Gigs</h1>
-                    <p className="text-gray-600 mt-2">Manage your teaching services and offerings.</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Gigs</h1>
+                    <p className="text-sm sm:text-base text-gray-600 mt-2">Manage your teaching services and offerings.</p>
                 </div>
-                <Link href="/dashboard/gigs/create">
-                    <Button className="bg-blue-600 hover:bg-blue-700">
+                <Link href="/dashboard/gigs/create" className="w-full sm:w-auto">
+                    <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
                         <Plus className="h-4 w-4 mr-2" />
                         Create New Gig
                     </Button>
@@ -114,7 +114,7 @@ export default function GigsPage() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {gigs.length === 0 ? (
                     <div className="col-span-full">
                         <Card className="bg-white shadow-sm border-0">
@@ -135,9 +135,9 @@ export default function GigsPage() {
                     gigs.map((gig) => (
                         <Card key={gig._id} className="bg-white shadow-sm border-0 hover:shadow-md transition-shadow">
                             <CardHeader className="pb-3">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <CardTitle className="text-lg mb-2">{gig.title}</CardTitle>
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <CardTitle className="text-base sm:text-lg mb-2 truncate">{gig.title}</CardTitle>
                                         <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
                                             <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                                             <span>{(gig.averageRating ?? 0).toFixed(1)} / 5</span>
@@ -148,7 +148,7 @@ export default function GigsPage() {
                                             {gig.status || "active"}
                                         </Badge>
                                     </div>
-                                    <div className="flex gap-1">
+                                    <div className="flex gap-1 flex-shrink-0">
                                         <Button
                                             size="sm"
                                             variant="ghost"
@@ -156,6 +156,7 @@ export default function GigsPage() {
                                                 // Navigate to edit gig page (dashboard-2 route)
                                                 window.location.href = `/dashboard/gigs/${gig._id}/edit`
                                             }}
+                                            className="p-2"
                                         >
                                             <Edit className="h-4 w-4" />
                                         </Button>
@@ -163,7 +164,7 @@ export default function GigsPage() {
                                             size="sm"
                                             variant="ghost"
                                             onClick={() => handleDeleteGig(gig._id)}
-                                            className="text-red-600 hover:text-red-700"
+                                            className="text-red-600 hover:text-red-700 p-2"
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -172,9 +173,9 @@ export default function GigsPage() {
                             </CardHeader>
                             <CardContent className="pt-0">
                                 <div className="mb-3">
-                                    <img src={getGigThumb(gig.thumbnailUrl, 640, 160)} alt={`${gig.title} thumbnail`} className="w-full h-40 object-cover rounded-md border" />
+                                    <img src={getGigThumb(gig.thumbnailUrl, 640, 160)} alt={`${gig.title} thumbnail`} className="w-full h-32 sm:h-40 object-cover rounded-md border" />
                                 </div>
-                                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                                <p className="text-xs sm:text-sm text-gray-600 mb-4 line-clamp-2">
                                     {gig.description}
                                 </p>
                                 

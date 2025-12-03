@@ -39,8 +39,20 @@ export default function DashboardLayout({
             return
         }
         // Allow joining embedded video call even if role not yet set
+        // Check if user has completed onboarding before redirecting
         const role = typeof window !== "undefined" ? localStorage.getItem("role") : null
-        if (!role && !isVideoCallRoute) {
+        const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null
+        let isOnboarded = false
+        try {
+            if (userStr) {
+                const u = JSON.parse(userStr)
+                isOnboarded = u?.isOnboarded === true
+            }
+        } catch { }
+
+        // Only redirect to onboarding if user hasn't completed it AND has no role
+        // If user is onboarded but missing role, they can still access dashboard (role can be set later)
+        if (!role && !isOnboarded && !isVideoCallRoute) {
             router.replace("/onboarding")
             return
         }
@@ -71,7 +83,7 @@ export default function DashboardLayout({
                 if (u?.name) setDisplayName(u.name)
                 if (u?.avatar) setAvatarUrl(u.avatar)
             }
-        } catch {}
+        } catch { }
         if (isLoaded && isSignedIn) {
             if (!displayName) setDisplayName(user?.fullName || user?.username || user?.firstName || 'User')
             if (!avatarUrl) setAvatarUrl((user?.imageUrl as string) || '')
@@ -82,7 +94,7 @@ export default function DashboardLayout({
                     const u = JSON.parse(e.newValue)
                     if (u?.name) setDisplayName(u.name)
                     if (u?.avatar) setAvatarUrl(u.avatar)
-                } catch {}
+                } catch { }
             }
         }
         if (typeof window !== 'undefined') {

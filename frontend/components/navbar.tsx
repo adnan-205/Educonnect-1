@@ -9,7 +9,7 @@ import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 
 export function Navbar() {
     const [isOpen, setIsOpen] = useState(false)
-    
+
 
 
     return (
@@ -20,7 +20,7 @@ export function Navbar() {
                     <Link href="/" className="flex items-center space-x-2">
                         <BookOpen className="h-8 w-8 text-primary" />
                         <span className="text-xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-                            EduConnect
+                            TutorConnected
                         </span>
                     </Link>
 

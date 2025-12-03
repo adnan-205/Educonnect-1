@@ -216,12 +216,12 @@ export default function DashboardPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900">Welcome back, {displayName}!</h1>
-                <p className="text-gray-600 mt-2">Here's what's happening with your education journey today.</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome back, {displayName}!</h1>
+                <p className="text-sm sm:text-base text-gray-600 mt-2">Here's what's happening with your education journey today.</p>
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 <Card className="bg-white shadow-sm border-0">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
@@ -284,13 +284,13 @@ export default function DashboardPage() {
                         ) : (
                             <div className="space-y-3">
                                 {pendingReviews.map((p) => (
-                                    <div key={`${p.gigId}-${p.bookingId}`} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                                        <div>
-                                            <div className="font-semibold text-gray-900">{p.title}</div>
+                                    <div key={`${p.gigId}-${p.bookingId}`} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-semibold text-gray-900 truncate">{p.title}</div>
                                             <div className="text-sm text-gray-600">with {p.teacher}</div>
                                         </div>
-                                        <Link href={`/gigs/${p.gigId}`}>
-                                            <Button className="bg-yellow-500 hover:bg-yellow-600 text-black">
+                                        <Link href={`/gigs/${p.gigId}`} className="w-full sm:w-auto">
+                                            <Button className="bg-yellow-500 hover:bg-yellow-600 text-black w-full sm:w-auto">
                                                 <Star className="h-4 w-4 mr-2" />
                                                 Review now
                                             </Button>
@@ -316,20 +316,20 @@ export default function DashboardPage() {
                                 <div className="text-sm text-gray-500">No upcoming classes yet.</div>
                             ) : (
                                 studentBookings.slice(0, 5).map((b: any) => (
-                                    <div key={b._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                                        <div className="flex items-center space-x-4">
-                                            <Avatar className="h-12 w-12">
+                                    <div key={b._id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 p-4 bg-gray-50 rounded-lg">
+                                        <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                                            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
                                                 <AvatarImage src="/placeholder.jpg" />
                                                 <AvatarFallback>TC</AvatarFallback>
                                             </Avatar>
-                                            <div>
-                                                <h3 className="font-semibold text-gray-900">{b.gig?.title}</h3>
-                                                <p className="text-sm text-gray-600">with {b.gig?.teacher?.name}</p>
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="font-semibold text-gray-900 truncate text-sm sm:text-base">{b.gig?.title}</h3>
+                                                <p className="text-xs sm:text-sm text-gray-600 truncate">with {b.gig?.teacher?.name}</p>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="font-medium text-gray-900">{new Date(b.scheduledDate).toLocaleDateString()} {b.scheduledTime}</p>
-                                            <p className="text-sm text-gray-500">{b.gig?.duration} min</p>
+                                        <div className="text-left sm:text-right w-full sm:w-auto">
+                                            <p className="font-medium text-gray-900 text-sm sm:text-base">{new Date(b.scheduledDate).toLocaleDateString()} {b.scheduledTime}</p>
+                                            <p className="text-xs sm:text-sm text-gray-500">{b.gig?.duration} min</p>
                                         </div>
                                     </div>
                                 ))
@@ -341,24 +341,24 @@ export default function DashboardPage() {
                                 <div className="text-sm text-gray-500">No upcoming classes yet.</div>
                             ) : (
                                 teacherBookings.slice(0, 5).map((b: any) => (
-                                    <div key={b._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                                        <div className="flex items-center space-x-4">
-                                            <Avatar className="h-12 w-12">
+                                    <div key={b._id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 p-4 bg-gray-50 rounded-lg">
+                                        <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                                            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
                                                 <AvatarImage src={b.student?.avatar} />
                                                 <AvatarFallback>
                                                     {b.student?.name?.split(' ').map((n: string) => n[0]).join('') || 'S'}
                                                 </AvatarFallback>
                                             </Avatar>
-                                            <div>
-                                                <h3 className="font-semibold text-gray-900">{b.gig?.title}</h3>
-                                                <p className="text-sm text-gray-600">with {b.student?.name || "Student"}</p>
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="font-semibold text-gray-900 truncate text-sm sm:text-base">{b.gig?.title}</h3>
+                                                <p className="text-xs sm:text-sm text-gray-600 truncate">with {b.student?.name || "Student"}</p>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="font-medium text-gray-900">
+                                        <div className="text-left sm:text-right w-full sm:w-auto">
+                                            <p className="font-medium text-gray-900 text-sm sm:text-base">
                                                 {new Date(b.scheduledDate || b.scheduledAt).toLocaleDateString()} {b.scheduledTime || ""}
                                             </p>
-                                            <p className="text-sm text-gray-500">{b.gig?.duration || 60} min</p>
+                                            <p className="text-xs sm:text-sm text-gray-500">{b.gig?.duration || 60} min</p>
                                         </div>
                                     </div>
                                 ))

@@ -9,10 +9,10 @@ export default function HowItWorksPage() {
             <div className="container mx-auto text-center">
                 <div className="max-w-3xl mx-auto mb-12">
                     <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                        How EduConnect Works
+                        How TutorConnected Works
                     </h1>
                     <p className="text-xl text-muted-foreground mb-6">
-                        EduConnect makes it easy for students to find the perfect teacher and for teachers to share their knowledge with the world. Here’s how it works:
+                        TutorConnected makes it easy for students to find the perfect teacher and for teachers to share their knowledge with the world. Here's how it works:
                     </p>
                 </div>
                 <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">

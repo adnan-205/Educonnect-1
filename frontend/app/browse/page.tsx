@@ -225,29 +225,29 @@ export default function BrowsePage() {
                                 <div className="font-semibold leading-snug mb-1 line-clamp-2">{gig.title}</div>
                                 <div className="text-sm text-muted-foreground mb-3">by {gig.teacher.name}</div>
                                 <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-1 text-amber-500 text-sm">
-                                        <Star className="h-4 w-4 fill-current" />
+                                    <div className="flex items-center gap-1 text-amber-500 text-xs sm:text-sm">
+                                        <Star className="h-3 w-3 sm:h-4 sm:w-4 fill-current" />
                                         <span>4.8</span>
                                         <span className="text-muted-foreground">(12)</span>
                                     </div>
-                                    <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                                        <Clock className="h-4 w-4" />
+                                    <div className="flex items-center gap-1 text-muted-foreground text-xs sm:text-sm">
+                                        <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                                         {gig.duration} min
                                     </div>
                                 </div>
                                 <div className="mb-3">
-                                    <p className="text-sm text-muted-foreground line-clamp-2">{gig.description}</p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{gig.description}</p>
                                 </div>
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="text-xs text-muted-foreground">
                                         Created: {new Date(gig.createdAt).toLocaleDateString()}
                                     </div>
-                                    <div className="flex gap-2">
-                                        <Link href={`/teachers/${gig.teacher._id}`}>
-                                            <Button variant="outline" size="sm">View Profile</Button>
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                        <Link href={`/teachers/${gig.teacher._id}`} className="flex-1 sm:flex-initial">
+                                            <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">View Profile</Button>
                                         </Link>
-                                        <Link href={`/book/${gig._id}`}>
-                                            <Button size="sm">Book Now</Button>
+                                        <Link href={`/book/${gig._id}`} className="flex-1 sm:flex-initial">
+                                            <Button size="sm" className="w-full sm:w-auto text-xs sm:text-sm">Book Now</Button>
                                         </Link>
                                     </div>
                                 </div>

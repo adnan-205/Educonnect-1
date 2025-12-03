@@ -162,10 +162,10 @@ export default function MyClassesPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900">My Classes</h1>
-                <p className="text-gray-600 mt-2">View and manage your scheduled classes.</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Classes</h1>
+                <p className="text-sm sm:text-base text-gray-600 mt-2">View and manage your scheduled classes.</p>
             </div>
 
             {error && (
@@ -186,62 +186,65 @@ export default function MyClassesPage() {
                 ) : (
                     classes.map((classItem) => (
                         <Card key={classItem._id} className="bg-white shadow-sm border-0">
-                            <CardContent className="p-6">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-start space-x-4">
-                                        <Avatar className="h-12 w-12">
+                            <CardContent className="p-4 sm:p-6">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-4">
+                                    <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0">
+                                        <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
                                             <AvatarImage src={classItem.student?.avatar || "/placeholder.jpg"} />
                                             <AvatarFallback>
                                                 {classItem.student?.name?.split(' ').map((n: string) => n[0]).join('') || 'ST'}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <div className="flex-1">
-                                            <h3 className="font-semibold text-gray-900 mb-1">
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base truncate">
                                                 {classItem.gig?.title}
                                             </h3>
-                                            <p className="text-sm text-gray-600 mb-2">
+                                            <p className="text-xs sm:text-sm text-gray-600 mb-2 truncate">
                                                 with {classItem.student?.name}
                                             </p>
-                                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                                            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                                                 <div className="flex items-center gap-1">
-                                                    <Calendar className="h-4 w-4" />
+                                                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                                                     {formatDateTime(classItem).date}
                                                     {isClassToday(classItem) && (
-                                                        <Badge className="ml-2 bg-blue-100 text-blue-800">Today</Badge>
+                                                        <Badge className="ml-1 sm:ml-2 bg-blue-100 text-blue-800 text-xs">Today</Badge>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-1">
-                                                    <Clock className="h-4 w-4" />
+                                                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                                                     {formatDateTime(classItem).time}
                                                 </div>
                                                 <div className="flex items-center gap-1">
-                                                    <User className="h-4 w-4" />
+                                                    <User className="h-3 w-3 sm:h-4 sm:w-4" />
                                                     {classItem.gig?.duration} min
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <Badge className={getStatusColor(classItem.status)}>
-                                            {classItem.status}
-                                        </Badge>
-                                        {paidMap[classItem._id] ? (
-                                            <Badge className="bg-green-100 text-green-800">Paid</Badge>
-                                        ) : (
-                                            <Badge className="bg-yellow-100 text-yellow-800">Unpaid</Badge>
-                                        )}
-                                        <div className="flex gap-2">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <Badge className={getStatusColor(classItem.status)}>
+                                                {classItem.status}
+                                            </Badge>
+                                            {paidMap[classItem._id] ? (
+                                                <Badge className="bg-green-100 text-green-800">Paid</Badge>
+                                            ) : (
+                                                <Badge className="bg-yellow-100 text-yellow-800">Unpaid</Badge>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2 w-full sm:w-auto">
                                             {classItem.status === "accepted" && (
                                                 <Button
                                                     size="sm"
                                                     onClick={() => handleJoinClass(classItem)}
                                                     className={`${isJoinEnabled(classItem) 
                                                         ? 'bg-green-600 hover:bg-green-700' 
-                                                        : 'bg-gray-200 text-gray-600'}`}
+                                                        : 'bg-gray-200 text-gray-600'} flex-1 sm:flex-initial`}
                                                     disabled={!isJoinEnabled(classItem) || (!classItem.meetingLink && !classItem.meetingRoomId)}
                                                 >
                                                     <Video className="h-4 w-4 mr-1" />
-                                                    {isJoinEnabled(classItem) ? 'Join Now' : 'Join Class'}
+                                                    <span className="hidden sm:inline">{isJoinEnabled(classItem) ? 'Join Now' : 'Join Class'}</span>
+                                                    <span className="sm:hidden">Join</span>
                                                 </Button>
                                             )}
                                             {classItem.status === "accepted" && classItem.meetingLink && (
@@ -249,8 +252,10 @@ export default function MyClassesPage() {
                                                     size="sm"
                                                     variant="outline"
                                                     onClick={() => handleMarkComplete(classItem._id)}
+                                                    className="flex-1 sm:flex-initial"
                                                 >
-                                                    Mark Complete
+                                                    <span className="hidden sm:inline">Mark Complete</span>
+                                                    <span className="sm:hidden">Complete</span>
                                                 </Button>
                                             )}
                                         </div>

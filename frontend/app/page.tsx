@@ -98,7 +98,7 @@ export default function HomePage() {
               Find Your Perfect Teacher, Anytime
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-              Join thousands of students and teachers on EduConnect. Book personalized online classes, learn new skills,
+              Join thousands of students and teachers on TutorConnected. Book personalized online classes, learn new skills,
               and achieve your educational goals.
             </p>
             {/* Search Feature - elevated card */}
@@ -245,7 +245,7 @@ export default function HomePage() {
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm bg-primary/10 text-primary mb-3">
               <Zap className="h-4 w-4" /> How it works
             </span>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">How EduConnect Works</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">How TutorConnected Works</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Simple steps to start your learning journey or begin teaching
             </p>
@@ -343,7 +343,7 @@ export default function HomePage() {
             <div className="rounded-2xl border bg-muted/30 overflow-hidden shadow-sm">
               <img
                 src="https://ik.imagekit.io/28yikewmi/New%20Folder/Gradient%20Colorful%20Minimalist%20Coming%20%20Soon%20Banner.png?updatedAt=1754756321060v b/1200/600"
-                alt="How EduConnect works overview"
+                alt="How TutorConnected works overview"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -376,7 +376,7 @@ export default function HomePage() {
                   <span>Level up your learning</span>
                 </div>
                 <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
-                  Learn faster. Teach smarter. With EduConnect.
+                  Learn faster. Teach smarter. With TutorConnected.
                 </h2>
                 <p className="text-white/90 text-lg mb-8 max-w-xl">
                   The all-in-one platform that matches students with expert teachers. Seamless booking, secure payments,
@@ -416,7 +416,7 @@ export default function HomePage() {
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button size="lg" variant="secondary" asChild>
-                    <a href="#" aria-label="Get started now with EduConnect">Get started free</a>
+                    <a href="#" aria-label="Get started now with TutorConnected">Get started free</a>
                   </Button>
                   <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-blue-700" asChild>
                     <a href="#" aria-label="See how it works">See how it works</a>
@@ -429,7 +429,7 @@ export default function HomePage() {
                 <div className="rounded-2xl overflow-hidden border border-white/20 bg-white/10 backdrop-blur-md shadow-2xl">
                   <img
                     src="/placeholder.svg?height=640&width=960"
-                    alt="EduConnect live class preview"
+                    alt="TutorConnected live class preview"
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -472,7 +472,7 @@ export default function HomePage() {
               <Quote className="h-4 w-4" /> Testimonials
             </span>
             <h2 className="text-3xl md:text-4xl font-bold mb-3">Loved by learners and teachers</h2>
-            <p className="text-muted-foreground text-lg">Real stories from people growing with EduConnect</p>
+            <p className="text-muted-foreground text-lg">Real stories from people growing with TutorConnected</p>
           </div>
 
           {/* Marquee of short quotes - dual rows with masks */}
@@ -533,7 +533,7 @@ export default function HomePage() {
             {[
               {
                 quote:
-                  "EduConnect matched me with an incredible calculus tutor. After 4 sessions, my grades jumped from B- to A!",
+                  "TutorConnected matched me with an incredible calculus tutor. After 4 sessions, my grades jumped from B- to A!",
                 name: "Nusrat Jahan",
                 role: "Student, Dhaka University",
                 avatar: "/placeholder.svg?height=80&width=80",
@@ -598,7 +598,7 @@ export default function HomePage() {
         <div className="container mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Start Your Learning Journey?</h2>
           <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-            Join EduConnect today and connect with amazing teachers or start sharing your knowledge with students
+            Join TutorConnected today and connect with amazing teachers or start sharing your knowledge with students
             worldwide.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -616,7 +616,7 @@ export default function HomePage() {
             >
               <Link href="/signup?type=teacher">
                 <UserCheck className="mr-2 h-4 w-4" />
-                Teach on EduConnect
+                Teach on TutorConnected
               </Link>
             </Button>
           </div>

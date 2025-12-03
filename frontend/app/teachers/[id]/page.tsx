@@ -60,7 +60,7 @@ export default function PublicTeacherProfilePage() {
       bio,
       avatar,
       coverImage,
-      headline: user?.headline || "Teacher on EduConnect",
+      headline: user?.headline || "Teacher on TutorConnected",
       userType: "teacher",
       experiences: user?.profile?.experiences || [],
       education: user?.profile?.education || [],

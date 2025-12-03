@@ -42,7 +42,7 @@ export default function ProfilePage() {
       {
         id: "2",
         title: "Mathematics Tutor",
-        company: "EduConnect Platform",
+        company: "TutorConnected Platform",
         location: "Remote",
         startDate: "2019-01",
         endDate: undefined,

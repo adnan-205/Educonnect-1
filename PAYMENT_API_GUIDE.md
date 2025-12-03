@@ -247,3 +247,4 @@ curl -X POST http://129.212.237.102/api/payments/init \
 - ❌ `/post/api/payments/init` (wrong URL)
 
 
+

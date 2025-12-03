@@ -188,10 +188,10 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Student Dashboard</h1>
-        <p className="text-muted-foreground">Discover amazing teachers and book your next learning session</p>
+    <div className="container mx-auto px-4 py-4 sm:py-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Student Dashboard</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Discover amazing teachers and book your next learning session</p>
       </div>
 
       {/* Alert Messages */}
@@ -207,7 +207,7 @@ export default function StudentDashboard() {
       )}
 
       {/* Quick Stats */}
-      <div className="grid md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -333,45 +333,45 @@ export default function StudentDashboard() {
             ) : (
               filteredGigs.map((gig) => (
                 <Card key={gig._id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex gap-6">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/10 to-purple-500/10 flex items-center justify-center">
-                        <User className="h-8 w-8 text-primary/50" />
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/10 to-purple-500/10 flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0">
+                        <User className="h-6 w-6 sm:h-8 sm:w-8 text-primary/50" />
                       </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h3 className="text-xl font-semibold mb-1">{gig.title}</h3>
-                            <p className="text-muted-foreground">by {gig.teacher.name}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-2 sm:gap-0 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg sm:text-xl font-semibold mb-1 truncate">{gig.title}</h3>
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">by {gig.teacher.name}</p>
                           </div>
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-primary">${gig.price}</div>
-                            <div className="text-sm text-muted-foreground">per hour</div>
+                          <div className="text-left sm:text-right">
+                            <div className="text-xl sm:text-2xl font-bold text-primary">${gig.price}</div>
+                            <div className="text-xs sm:text-sm text-muted-foreground">per hour</div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-4 mb-3">
-                          <Badge variant="secondary">{gig.category}</Badge>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-3">
+                          <Badge variant="secondary" className="text-xs">{gig.category}</Badge>
                           <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            <span className="font-medium">4.8</span>
-                            <span className="text-muted-foreground">(12 reviews)</span>
+                            <Star className="h-3 w-3 sm:h-4 sm:w-4 fill-yellow-400 text-yellow-400" />
+                            <span className="font-medium text-xs sm:text-sm">4.8</span>
+                            <span className="text-muted-foreground text-xs sm:text-sm">(12 reviews)</span>
                           </div>
                           <div className="flex items-center gap-1 text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            {gig.duration} min
+                            <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span className="text-xs sm:text-sm">{gig.duration} min</span>
                           </div>
                         </div>
 
-                        <p className="text-muted-foreground mb-4">{gig.description}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2">{gig.description}</p>
 
-                        <div className="flex justify-between items-center">
-                          <div className="text-sm text-muted-foreground">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
+                          <div className="text-xs sm:text-sm text-muted-foreground">
                             Created: {new Date(gig.createdAt).toLocaleDateString()}
                           </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline">View Profile</Button>
-                            <Button onClick={() => handleBookGig(gig)}>Book Now</Button>
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <Button variant="outline" size="sm" className="flex-1 sm:flex-initial text-xs sm:text-sm">View Profile</Button>
+                            <Button onClick={() => handleBookGig(gig)} size="sm" className="flex-1 sm:flex-initial text-xs sm:text-sm">Book Now</Button>
                           </div>
                         </div>
                       </div>

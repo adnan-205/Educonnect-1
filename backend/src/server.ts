@@ -151,7 +151,7 @@ app.use(limiter);
 // Root route
 app.get('/', (req, res) => {
   res.json({
-    message: 'Welcome to EduConnect API',
+    message: 'Welcome to TutorConnected API',
     version: '1.0.0',
     baseUrl: `${req.protocol}://${req.get('host')}`,
     endpoints: {

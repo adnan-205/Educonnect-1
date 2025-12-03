@@ -31,6 +31,7 @@ export const clerkSync = async (req: Request, res: Response) => {
 
     if (!user) {
       // Default role as student; can be updated later via updateRole
+      // New users start with isOnboarded: false (default from schema)
       const generatedPassword = Math.random().toString(36).slice(-12);
       const userName = (name && name.trim()) ? name.trim() : email.split('@')[0];
       user = await User.create({
@@ -38,6 +39,7 @@ export const clerkSync = async (req: Request, res: Response) => {
         email,
         password: generatedPassword,
         role: 'student',
+        isOnboarded: false, // Explicitly set for new users
       });
     } else {
       // Update name if it's provided, not empty, and different from current name
@@ -100,16 +102,19 @@ export const clerkSync = async (req: Request, res: Response) => {
       // Continue even if logging fails
     }
 
+    // Fetch fresh user data to ensure isOnboarded is included (in case of any caching issues)
+    const freshUser = await User.findById(user._id).select('name email role isOnboarded marketingSource').lean();
+
     res.json({
       success: true,
       token,
       user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isOnboarded: (user as any).isOnboarded ?? false,
-        marketingSource: (user as any).marketingSource,
+        id: freshUser?._id || user._id,
+        name: freshUser?.name || user.name,
+        email: freshUser?.email || user.email,
+        role: freshUser?.role || user.role,
+        isOnboarded: freshUser?.isOnboarded === true, // Explicitly check for true boolean
+        marketingSource: freshUser?.marketingSource || (user as any).marketingSource,
       },
     });
   } catch (err: any) {
@@ -168,7 +173,7 @@ export const register = async (req: Request, res: Response) => {
         user.role = 'admin' as any;
         await user.save();
       }
-    } catch {}
+    } catch { }
 
     // Promote to admin if email allowlisted
     try {
@@ -180,7 +185,7 @@ export const register = async (req: Request, res: Response) => {
         user.role = 'admin' as any;
         await (user as any).save?.();
       }
-    } catch {}
+    } catch { }
 
     // Create token
     const token = jwt.sign(
@@ -235,7 +240,7 @@ export const updateRole = async (req: Request, res: Response) => {
       });
     }
 
-    await logActivity({ userId: (req as any)?.user?._id, action: 'admin.updateRole', metadata: { email, role } , req });
+    await logActivity({ userId: (req as any)?.user?._id, action: 'admin.updateRole', metadata: { email, role }, req });
 
     res.json({
       success: true,
@@ -291,7 +296,7 @@ export const updateMyRole = async (req: Request, res: Response) => {
       });
     }
 
-    await logActivity({ userId: user._id, action: 'user.updateMyRole', metadata: { email, role } , req });
+    await logActivity({ userId: user._id, action: 'user.updateMyRole', metadata: { email, role }, req });
 
     res.json({
       success: true,

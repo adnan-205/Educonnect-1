@@ -48,7 +48,7 @@ export default function RoleSelectionPage() {
   return (
     <div className="container mx-auto max-w-2xl py-12">
       <h1 className="text-3xl font-bold mb-2">Choose your role</h1>
-      <p className="text-muted-foreground mb-8">Tell us how you want to use EduConnect.</p>
+      <p className="text-muted-foreground mb-8">Tell us how you want to use TutorConnected.</p>
 
       {error && (
         <Alert variant="destructive" className="mb-6">

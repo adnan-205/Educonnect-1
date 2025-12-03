@@ -27,12 +27,13 @@ export default function OnboardingPage() {
         const u = JSON.parse(userStr)
         if (u?.role) setRole(u.role)
         if (u?.marketingSource) setMarketingSource(u.marketingSource)
-        if (u?.isOnboarded) {
+        if (u?.isOnboarded === true) {
           // If already onboarded, go to dashboard
           router.replace("/dashboard")
+          return
         }
       }
-    } catch {}
+    } catch { }
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,14 +42,14 @@ export default function OnboardingPage() {
       toast({ title: "Missing info", description: "Please select your role.", variant: "destructive" })
       return
     }
-    
+
     // Get name from Clerk user
     const name = clerkUser?.fullName || clerkUser?.firstName || clerkUser?.username || ""
     if (!name) {
       toast({ title: "Missing info", description: "Please ensure your name is set in your account.", variant: "destructive" })
       return
     }
-    
+
     try {
       setLoading(true)
       const payload: any = { name, role, marketingSource, isOnboarded: true }
@@ -56,12 +57,13 @@ export default function OnboardingPage() {
       const updated = res?.data
       if (updated) {
         // Persist to localStorage for client-side checks
+        // After completing onboarding, isOnboarded should always be true
         localStorage.setItem("user", JSON.stringify({
           id: updated._id || updated.id,
           name: updated.name,
           email: updated.email,
           role: updated.role,
-          isOnboarded: true,
+          isOnboarded: true, // Always true after completing onboarding
           marketingSource: updated.marketingSource,
         }))
         localStorage.setItem("role", updated.role)
@@ -116,10 +118,10 @@ export default function OnboardingPage() {
                 </Select>
               </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="source">Where did you hear about us?</Label>
-              <Input id="source" value={marketingSource} onChange={(e) => setMarketingSource(e.target.value)} placeholder="Google, Friend, Social Media, etc." />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="source">Where did you hear about us?</Label>
+                <Input id="source" value={marketingSource} onChange={(e) => setMarketingSource(e.target.value)} placeholder="Google, Friend, Social Media, etc." />
+              </div>
 
               <div className="pt-2">
                 <Button type="submit" disabled={loading || !clerkUser} className="w-full">

@@ -1,4 +1,4 @@
-# EduConnect
+# TutorConnected
 
 > 🚀 **Ready for DigitalOcean Deployment!** See [QUICK_DEPLOY_DIGITALOCEAN.md](./QUICK_DEPLOY_DIGITALOCEAN.md) for simple deployment guide. - Online Learning Platform
 

@@ -1,4 +1,4 @@
-# 📚 EduConnect API - Complete Endpoints Documentation
+# 📚 TutorConnected API - Complete Endpoints Documentation
 
 **Base URL**: `http://129.212.237.102` (or your server IP)
 
