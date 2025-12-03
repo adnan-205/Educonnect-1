@@ -8,12 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "vercel-build": "next build",
-    "test": "vitest run",
-    "test:ui": "vitest --ui",
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "test:install": "playwright install"
+    "vercel-build": "next build"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.31.9",
