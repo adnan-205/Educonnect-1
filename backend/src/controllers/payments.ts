@@ -147,3 +147,62 @@ export const getPaymentStatus = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: 'Failed to check payment status' });
   }
 };
+
+// Batch check payment status for multiple bookings (eliminates N+1 queries)
+export const batchGetBookingPaymentStatus = async (req: Request, res: Response) => {
+  try {
+    const { bookingIds } = req.body as { bookingIds: string[] };
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'bookingIds array is required' });
+    }
+
+    // Limit to prevent abuse
+    if (bookingIds.length > 100) {
+      return res.status(400).json({ success: false, message: 'Maximum 100 bookingIds per request' });
+    }
+
+    // Get all bookings in one query
+    const bookings = await Booking.find({ _id: { $in: bookingIds } })
+      .select('_id gig student')
+      .populate('gig', 'teacher')
+      .lean();
+
+    // Filter bookings user has access to (student or teacher)
+    const accessibleBookingIds = bookings
+      .filter((b: any) => {
+        const isStudent = b.student?.toString() === userId.toString();
+        const isTeacher = b.gig?.teacher?.toString() === userId.toString();
+        return isStudent || isTeacher;
+      })
+      .map((b: any) => b._id.toString());
+
+    // Get all payments for these bookings in one query
+    const payments = await Payment.find({
+      bookingId: { $in: accessibleBookingIds },
+      status: 'SUCCESS'
+    }).select('bookingId').lean();
+
+    // Build result map
+    const paidSet = new Set(payments.map((p: any) => p.bookingId.toString()));
+    const result: Record<string, boolean> = {};
+    
+    for (const bookingId of bookingIds) {
+      if (accessibleBookingIds.includes(bookingId)) {
+        result[bookingId] = paidSet.has(bookingId);
+      } else {
+        result[bookingId] = false; // No access or not found
+      }
+    }
+
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('batchGetBookingPaymentStatus error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to check payment statuses' });
+  }
+};

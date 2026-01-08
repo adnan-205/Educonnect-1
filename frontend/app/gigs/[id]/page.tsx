@@ -83,7 +83,7 @@ export default async function GigPublicPage({ params }: { params: Promise<{ id: 
               </Avatar>
               <div>
                 <div className="font-medium">{teacher?.name}</div>
-                <div className="text-sm text-gray-500">{gig?.category} • {gig?.duration} min • ${gig?.price}/session</div>
+                <div className="text-sm text-gray-500">{gig?.category} • {gig?.duration} min • ৳{gig?.price}/session</div>
               </div>
             </div>
 

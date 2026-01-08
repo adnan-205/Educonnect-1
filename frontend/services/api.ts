@@ -246,6 +246,17 @@ export const paymentsApi = {
       throw error;
     }
   },
+
+  // Batch check payment status for multiple bookings (eliminates N+1)
+  batchGetBookingStatus: async (bookingIds: string[]) => {
+    try {
+      const response = await api.post('/payments/booking-status/batch', { bookingIds }, { timeout: 15000 });
+      return response.data; // { success, data: { [bookingId]: boolean } }
+    } catch (error) {
+      console.error('Error batch checking booking payment status:', error);
+      throw error;
+    }
+  },
 };
 
 export const uploadsApi = {
@@ -329,37 +340,12 @@ api.interceptors.request.use(
 
     let token: string | null = null;
 
-    // Prefer backend-issued token first
+    // Get backend-issued token from localStorage (Providers handles sync)
     if (typeof window !== 'undefined') {
       try { token = localStorage.getItem('token'); } catch {}
     }
 
-    // If no backend token yet, try to obtain one using stored email (silent preflight)
-    if (!token && typeof window !== 'undefined') {
-      try {
-        const email = localStorage.getItem('userEmail');
-        if (email && !(config.url || '').includes('/auth/')) {
-          const res = await api.post('/auth/clerk-sync', { email });
-          const data: any = res?.data || {};
-          const newToken = data?.token as string | undefined;
-          const user = data?.user;
-          if (user) {
-            try { localStorage.setItem('user', JSON.stringify(user)); } catch {}
-            if (user.role) {
-              try { localStorage.setItem('role', user.role); } catch {}
-            }
-          }
-          if (newToken) {
-            try { localStorage.setItem('token', newToken); } catch {}
-            token = newToken;
-          }
-        }
-      } catch {
-        // ignore; will proceed without token and rely on 401 recovery
-      }
-    }
-
-    // Fallback to Clerk token provider if backend token still missing
+    // Fallback to Clerk token provider if backend token missing
     if (!token && authTokenProvider) {
       try {
         token = await authTokenProvider();
@@ -376,27 +362,28 @@ api.interceptors.request.use(
       }
     }
 
-    console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`, {
-      data: config.data,
-      params: (config as any).params,
-      headers: config.headers,
-    });
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+    }
 
     return config;
   },
   (error) => {
-    console.error('[API] Request Error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[API] Request Error:', error);
+    }
     return Promise.reject(error);
   }
 );
 
-// Add response interceptor for debugging and lightweight 401 recovery
+// Add response interceptor for debugging and auth response handling
 api.interceptors.response.use(
   (response) => {
-    console.log(`[API] ${response.status} ${response.config.url}`, {
-      data: response.data,
-      headers: response.headers,
-    });
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[API] ${response.status} ${response.config.url}`);
+    }
     try {
       const url = response.config?.url || '';
       if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/clerk-sync')) {
@@ -418,48 +405,24 @@ api.interceptors.response.use(
   },
   (error: AxiosError) => {
     const cfg = (error.config || {}) as any;
-    // Attempt a one-time re-auth on 401 using stored userEmail (set by Providers)
     const status = error.response?.status;
-    if (status === 401 && !cfg._retryAuth) {
-      try {
-        const email = (typeof window !== 'undefined' && (localStorage.getItem('userEmail') || JSON.parse(localStorage.getItem('user') || '{}')?.email)) || null;
-        if (email) {
-          cfg._retryAuth = true;
-          // Keep name optional
-          return api.post('/auth/clerk-sync', { email })
-            .then((res) => {
-              const data: any = res?.data || {};
-              const token = data?.token;
-              const user = data?.user;
-              if (user) {
-                try { localStorage.setItem('user', JSON.stringify(user)); } catch {}
-                if (user.role) {
-                  try { localStorage.setItem('role', user.role); } catch {}
-                }
-              }
-              if (token) {
-                try { localStorage.setItem('token', token) } catch {}
-                cfg.headers = cfg.headers || {};
-                cfg.headers['Authorization'] = `Bearer ${token}`;
-              }
-              return api.request(cfg);
-            })
-        }
-      } catch {}
-    }
+    
+    // On 401, let Providers handle re-sync on next request (no recursive retry here)
 
     if (error.response) {
       // The request was made and the server responded with a status code
-      try {
-        const safeStatus = error.response.status;
-        const safeUrl = cfg?.url || 'unknown';
-        const safeMethod = cfg?.method || 'get';
-        const dataAny = (error.response.data as any) || {};
-        const msg = dataAny?.message || error.message || 'Unknown error';
-        const errs = Array.isArray(dataAny?.errors) ? `: ${dataAny.errors.join(', ')}` : '';
-        console.error(`[API] Response Error ${safeStatus} ${safeMethod?.toUpperCase?.()} ${safeUrl}: ${msg}${errs}`);
-      } catch {
-        console.error('[API] Response Error (unprintable)');
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          const safeStatus = error.response.status;
+          const safeUrl = cfg?.url || 'unknown';
+          const safeMethod = cfg?.method || 'get';
+          const dataAny = (error.response.data as any) || {};
+          const msg = dataAny?.message || error.message || 'Unknown error';
+          const errs = Array.isArray(dataAny?.errors) ? `: ${dataAny.errors.join(', ')}` : '';
+          console.error(`[API] Response Error ${safeStatus} ${safeMethod?.toUpperCase?.()} ${safeUrl}: ${msg}${errs}`);
+        } catch {
+          console.error('[API] Response Error (unprintable)');
+        }
       }
     } else if (error.request) {
       // The request was made but no response was received
@@ -472,12 +435,14 @@ api.interceptors.response.use(
         timeout: (cfg as any).timeout,
       } as const;
       // Log a concise string to avoid collapsed/empty object rendering in some consoles
-      try {
-        const method = info.method?.toUpperCase?.() || 'UNKNOWN';
-        const fullUrl = `${info.baseURL || ''}${info.url || ''}`;
-        console.error(`[API] No Response for ${method} ${fullUrl} (code=${info.code ?? 'n/a'}, timeout=${info.timeout ?? 'n/a'}): ${info.message}`);
-      } catch (_) {
-        console.error('[API] No Response:', info);
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          const method = info.method?.toUpperCase?.() || 'UNKNOWN';
+          const fullUrl = `${info.baseURL || ''}${info.url || ''}`;
+          console.error(`[API] No Response for ${method} ${fullUrl} (code=${info.code ?? 'n/a'}, timeout=${info.timeout ?? 'n/a'}): ${info.message}`);
+        } catch (_) {
+          console.error('[API] No Response:', info);
+        }
       }
       // Notify UI layer to present a retry option
       try {
@@ -488,12 +453,14 @@ api.interceptors.response.use(
       } catch {}
     } else {
       // Something happened in setting up the request
-      console.error('[API] Request Setup Error:', {
-        message: error.message,
-        code: (error as any).code,
-        url: error.config?.url,
-        method: error.config?.method,
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[API] Request Setup Error:', {
+          message: error.message,
+          code: (error as any).code,
+          url: error.config?.url,
+          method: error.config?.method,
+        });
+      }
     }
     
     return Promise.reject(error);
@@ -631,6 +598,117 @@ export const bookingsApi = {
       return response.data;
     } catch (error) {
       console.error(`Error marking attendance for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+
+  getBooking: async (id: string) => {
+    try {
+      const response = await api.get(`/bookings/${encodeURIComponent(id)}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching booking ${id}:`, error);
+      throw error;
+    }
+  },
+
+  joinClass: async (bookingId: string) => {
+    try {
+      const response = await api.get(`/bookings/${encodeURIComponent(bookingId)}/join`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error joining class for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+};
+
+export const manualPaymentApi = {
+  // Teacher payment info
+  getMyPaymentInfo: async () => {
+    try {
+      const response = await api.get('/teachers/me/payment-info');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching teacher payment info:', error);
+      throw error;
+    }
+  },
+
+  updateMyPaymentInfo: async (data: {
+    bkashNumber?: string;
+    nagadNumber?: string;
+    bankAccountName?: string;
+    bankAccountNumber?: string;
+    bankName?: string;
+    bankBranch?: string;
+    routingNumber?: string;
+    instructions?: string;
+  }) => {
+    try {
+      const response = await api.put('/teachers/me/payment-info', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating teacher payment info:', error);
+      throw error;
+    }
+  },
+
+  // Student payment boarding
+  getManualPaymentInfo: async (bookingId: string) => {
+    try {
+      const response = await api.get(`/bookings/${encodeURIComponent(bookingId)}/manual-payment-info`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching manual payment info for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+
+  submitPaymentProof: async (bookingId: string, data: {
+    method: 'bkash' | 'nagad' | 'bank';
+    trxid: string;
+    senderNumber?: string;
+    amountPaid?: number;
+    screenshotUrl?: string;
+  }) => {
+    try {
+      const response = await api.post(`/bookings/${encodeURIComponent(bookingId)}/payment/submit`, data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error submitting payment proof for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+
+  // Teacher verification
+  verifyPayment: async (bookingId: string) => {
+    try {
+      const response = await api.post(`/bookings/${encodeURIComponent(bookingId)}/payment/verify`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error verifying payment for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+
+  rejectPayment: async (bookingId: string, reason: string) => {
+    try {
+      const response = await api.post(`/bookings/${encodeURIComponent(bookingId)}/payment/reject`, { reason });
+      return response.data;
+    } catch (error) {
+      console.error(`Error rejecting payment for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+
+  // Payment status polling
+  getPaymentStatus: async (bookingId: string) => {
+    try {
+      const response = await api.get(`/bookings/${encodeURIComponent(bookingId)}/payment/status`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching payment status for booking ${bookingId}:`, error);
       throw error;
     }
   },

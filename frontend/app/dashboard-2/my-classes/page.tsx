@@ -21,25 +21,13 @@ export default function MyClassesPage() {
     const [paidMap, setPaidMap] = useState<Record<string, boolean>>({})
 
     useEffect(() => {
-        const syncAndFetch = async () => {
-            try {
-                if (!isLoaded) return
-                if (!isSignedIn) return
-                let token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-                if (!token && user?.primaryEmailAddress?.emailAddress) {
-                    try {
-                        const email = user.primaryEmailAddress.emailAddress
-                        const name = user.fullName || undefined
-                        const res = await api.post('/auth/clerk-sync', { email, name })
-                        const { token: t, user: backendUser } = res.data || {}
-                        if (t) localStorage.setItem('token', t)
-                        if (backendUser) localStorage.setItem('user', JSON.stringify(backendUser))
-                    } catch {}
-                }
-                await loadClasses()
-            } finally {}
+        const fetchData = async () => {
+            if (!isLoaded) return
+            if (!isSignedIn) return
+            // Providers already synced token, just load data
+            await loadClasses()
         }
-        syncAndFetch()
+        fetchData()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoaded, isSignedIn, user?.id])
 
@@ -51,17 +39,16 @@ export default function MyClassesPage() {
             // Filter for accepted bookings (these are the actual classes)
             const acceptedClasses = (res?.data || []).filter((b: any) => b.status === "accepted")
             setClasses(acceptedClasses)
-            // Prefetch payment status per booking for teacher visibility
-            const results: Record<string, boolean> = {}
-            await Promise.all(acceptedClasses.map(async (b: any) => {
+            // Batch fetch payment status (eliminates N+1 queries)
+            if (acceptedClasses.length > 0) {
                 try {
-                    const st = await paymentsApi.getBookingStatus(b._id)
-                    results[b._id] = !!st?.paid
+                    const bookingIds = acceptedClasses.map((b: any) => b._id)
+                    const batchRes = await paymentsApi.batchGetBookingStatus(bookingIds)
+                    setPaidMap(batchRes?.data || {})
                 } catch {
-                    results[b._id] = false
+                    setPaidMap({})
                 }
-            }))
-            setPaidMap(results)
+            }
         } catch (e: any) {
             setError(e?.response?.data?.message || "Failed to load classes")
         } finally {

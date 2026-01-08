@@ -111,19 +111,39 @@ export default function JoinClassPage() {
         try {
             const response = await bookingsApi.getMyBookings()
             setBookings(response.data)
-            // After loading bookings, prefetch payment status for accepted bookings (per booking, not per gig)
+            
             const accepted = (response.data || []).filter((b: Booking) => b.status === "accepted")
-            const entries = await Promise.all(
-              accepted.map(async (bk: Booking) => {
+            const paidResults: Record<string, boolean> = {}
+            const manualResults: Record<string, any> = {}
+            
+            // Batch fetch payment status (eliminates N+1)
+            if (accepted.length > 0) {
                 try {
-                  const st = await paymentsApi.getBookingStatus(bk._id)
-                  return [bk._id, !!st?.paid] as const
+                    const bookingIds = accepted.map((b: Booking) => b._id)
+                    const batchRes = await paymentsApi.batchGetBookingStatus(bookingIds)
+                    Object.assign(paidResults, batchRes?.data || {})
                 } catch {
-                  return [bk._id, false] as const
+                    // Fallback: mark all as unpaid
                 }
-              })
-            )
-            setPaidMap(Object.fromEntries(entries))
+            }
+            
+            // Still need manual payment status checks individually (no batch endpoint yet)
+            await Promise.all(accepted.map(async (bk: Booking) => {
+                try {
+                    const manualSt = await manualPaymentApi.getPaymentStatus(bk._id)
+                    manualResults[bk._id] = manualSt?.data || null
+                    
+                    // Consider verified manual payment as paid
+                    if (manualSt?.data?.paymentStatus === 'verified') {
+                        paidResults[bk._id] = true
+                    }
+                } catch {
+                    manualResults[bk._id] = null
+                }
+            }))
+            
+            setPaidMap(paidResults)
+            setManualPaymentMap(manualResults)
         } catch (error) {
             console.error("Error fetching bookings:", error)
             toast({

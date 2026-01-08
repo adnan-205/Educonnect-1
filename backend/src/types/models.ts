@@ -101,6 +101,48 @@ export interface IGig {
   updatedAt: Date;
 }
 
+// Manual payment receiver snapshot (teacher info at submission time)
+export interface IReceiverSnapshot {
+  bkashNumber?: string;
+  nagadNumber?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  bankBranch?: string;
+  routingNumber?: string;
+  snapshotAt?: Date;
+}
+
+// Manual payment subdocument
+export interface IManualPayment {
+  methodType?: 'manual' | 'sslcommerz';
+  status?: 'pending_manual' | 'submitted' | 'verified' | 'rejected' | 'expired';
+  method?: 'bkash' | 'nagad' | 'bank';
+  amountExpected?: number;
+  amountPaid?: number;
+  trxid?: string;
+  senderNumber?: string;
+  screenshotUrl?: string;
+  submittedAt?: Date;
+  verifiedAt?: Date;
+  rejectedAt?: Date;
+  rejectReason?: string;
+  verifiedBy?: string | IUser;
+  submissionCount?: number;
+  receiverSnapshot?: IReceiverSnapshot;
+  acceptedAt?: Date;
+}
+
+// Payment audit log entry
+export interface IPaymentAuditLogEntry {
+  action: string;
+  fromStatus?: string;
+  toStatus?: string;
+  performedBy?: string | IUser;
+  note?: string;
+  timestamp?: Date;
+}
+
 export interface IBooking {
   _id: string;
   student: string | IUser;
@@ -123,8 +165,40 @@ export interface IBooking {
   studentRating?: number;
   reviewComment?: string;
   reviewVisibility?: boolean;
+  // Manual payment fields
+  manualPayment?: IManualPayment;
+  paymentRefCode?: string;
+  paymentAuditLog?: IPaymentAuditLogEntry[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Teacher payment info (payout details)
+export interface ITeacherPaymentInfo {
+  _id: string;
+  teacherId: string | IUser;
+  bkashNumber?: string;
+  nagadNumber?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  bankBranch?: string;
+  routingNumber?: string;
+  instructions?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Payment transaction registry (anti-fraud)
+export interface IPaymentTrxRegistry {
+  _id: string;
+  method: 'bkash' | 'nagad' | 'bank';
+  trxid: string;
+  bookingId: string | IBooking;
+  teacherId: string | IUser;
+  studentId: string | IUser;
+  amount: number;
+  createdAt: Date;
 }
 
 export interface IReview {

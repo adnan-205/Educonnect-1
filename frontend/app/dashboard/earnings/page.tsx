@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DollarSign, TrendingUp } from "lucide-react"
+import { TrendingUp } from "lucide-react"
 import { walletApi, api } from "@/services/api"
 import { useUser } from "@clerk/nextjs"
 import { useToast } from "@/hooks/use-toast"
@@ -286,7 +286,7 @@ export default function EarningsPage() {
                 <div key={t._id || i} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                   <div className="flex items-center space-x-4">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${t.type === 'CREDIT' ? 'bg-green-100' : 'bg-yellow-100'}`}>
-                      <DollarSign className={`h-5 w-5 ${t.type === 'CREDIT' ? 'text-green-600' : 'text-yellow-700'}`} />
+                      <span className={`h-5 w-5 leading-none ${t.type === 'CREDIT' ? 'text-green-600' : 'text-yellow-700'}`}>৳</span>
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">{t.description || (t.type === 'CREDIT' ? 'Payment received' : 'Withdrawal')}</p>

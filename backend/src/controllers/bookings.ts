@@ -333,6 +333,31 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
       if (enablePassword) {
         (booking as any).meetingPassword = crypto.randomBytes(8).toString('hex');
       }
+
+      // Initialize manual payment when booking is accepted
+      // Check if manual payment is enabled (default: true for now)
+      const useManualPayment = String(process.env.USE_MANUAL_PAYMENT || 'true').toLowerCase() === 'true';
+      if (useManualPayment) {
+        (booking as any).manualPayment = {
+          methodType: 'manual',
+          status: 'pending_manual',
+          amountExpected: gig?.price || 0,
+          submissionCount: 0,
+          acceptedAt: new Date(),
+        };
+        // Add audit log entry
+        if (!(booking as any).paymentAuditLog) {
+          (booking as any).paymentAuditLog = [];
+        }
+        (booking as any).paymentAuditLog.push({
+          action: 'payment.initialized',
+          fromStatus: undefined,
+          toStatus: 'pending_manual',
+          performedBy: req.user._id,
+          note: 'Manual payment initialized on booking acceptance',
+          timestamp: new Date(),
+        });
+      }
     }
 
     // If class marked completed, expose review visibility

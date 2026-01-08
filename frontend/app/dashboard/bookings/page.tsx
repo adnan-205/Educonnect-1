@@ -5,11 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { api, bookingsApi, paymentsApi } from "@/services/api"
+import { api, bookingsApi, paymentsApi, manualPaymentApi } from "@/services/api"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, Clock, User, CheckCircle, XCircle, Video } from "lucide-react"
+import { Calendar, Clock, User, CheckCircle, XCircle, Video, CreditCard, Eye, X } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 
 export default function BookingsPage() {
     const router = useRouter()
@@ -19,6 +29,13 @@ export default function BookingsPage() {
     const [error, setError] = useState("")
     const { toast } = useToast()
     const [paidMap, setPaidMap] = useState<Record<string, boolean>>({})
+    
+    // Manual payment verification state
+    const [manualPaymentMap, setManualPaymentMap] = useState<Record<string, any>>({})
+    const [verifyingBooking, setVerifyingBooking] = useState<any>(null)
+    const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+    const [rejectReason, setRejectReason] = useState("")
+    const [actionLoading, setActionLoading] = useState(false)
 
     useEffect(() => {
         const syncAndFetch = async () => {
@@ -50,18 +67,30 @@ export default function BookingsPage() {
             const res = await bookingsApi.getMyBookings()
             const list = res?.data || []
             setBookings(list)
-            // Prefetch paid status for accepted bookings
+            // Prefetch paid status and manual payment status for accepted bookings
             const accepted = list.filter((b: any) => b.status === "accepted")
             const results: Record<string, boolean> = {}
+            const manualResults: Record<string, any> = {}
             await Promise.all(accepted.map(async (b: any) => {
                 try {
-                    const st = await paymentsApi.getBookingStatus(b._id)
-                    results[b._id] = !!st?.paid
+                    // Check manual payment status first
+                    const manualSt = await manualPaymentApi.getPaymentStatus(b._id)
+                    manualResults[b._id] = manualSt?.data || null
+                    // Consider verified manual payment as paid
+                    if (manualSt?.data?.paymentStatus === 'verified') {
+                        results[b._id] = true
+                    } else {
+                        // Fallback to SSLCommerz check
+                        const st = await paymentsApi.getBookingStatus(b._id)
+                        results[b._id] = !!st?.paid
+                    }
                 } catch {
                     results[b._id] = false
+                    manualResults[b._id] = null
                 }
             }))
             setPaidMap(results)
+            setManualPaymentMap(manualResults)
         } catch (e: any) {
             setError(e?.response?.data?.message || "Failed to load bookings")
         } finally {
@@ -100,6 +129,76 @@ export default function BookingsPage() {
                 description: "Failed to reject booking",
                 variant: "destructive"
             })
+        }
+    }
+
+    // Manual payment verification handlers
+    const handleVerifyPayment = async (bookingId: string) => {
+        try {
+            setActionLoading(true)
+            await manualPaymentApi.verifyPayment(bookingId)
+            toast({
+                title: "Payment Verified",
+                description: "Student can now join the class"
+            })
+            setVerifyingBooking(null)
+            loadBookings()
+        } catch (error: any) {
+            toast({
+                title: "Error",
+                description: error?.response?.data?.message || "Failed to verify payment",
+                variant: "destructive"
+            })
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleRejectPayment = async () => {
+        if (!verifyingBooking || !rejectReason.trim()) {
+            toast({
+                title: "Error",
+                description: "Please provide a rejection reason",
+                variant: "destructive"
+            })
+            return
+        }
+        try {
+            setActionLoading(true)
+            await manualPaymentApi.rejectPayment(verifyingBooking._id, rejectReason.trim())
+            toast({
+                title: "Payment Rejected",
+                description: "Student has been notified"
+            })
+            setRejectDialogOpen(false)
+            setVerifyingBooking(null)
+            setRejectReason("")
+            loadBookings()
+        } catch (error: any) {
+            toast({
+                title: "Error",
+                description: error?.response?.data?.message || "Failed to reject payment",
+                variant: "destructive"
+            })
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const getManualPaymentStatusBadge = (status: string) => {
+        switch (status) {
+            case 'pending_manual':
+                return <Badge className="bg-yellow-100 text-yellow-800">Awaiting Payment</Badge>
+            case 'submitted':
+                return <Badge className="bg-blue-100 text-blue-800">Needs Verification</Badge>
+            case 'verified':
+                return <Badge className="bg-green-100 text-green-800">Verified</Badge>
+            case 'rejected':
+                return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
+            case 'expired':
+                return <Badge className="bg-gray-100 text-gray-800">Expired</Badge>
+            default:
+                return null
         }
     }
 
@@ -290,31 +389,54 @@ export default function BookingsPage() {
                         <CardContent className="p-6 text-center text-gray-600">No accepted bookings</CardContent>
                     </Card>
                 ) : (
-                    acceptedBookings.map((booking) => (
-                        <BookingItem
-                            key={booking._id}
-                            booking={booking}
-                            right={
-                                <div className="flex items-center gap-2">
-                                    <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
-                                    {paidMap[booking._id] ? (
-                                        <Badge className="bg-green-100 text-green-800">Paid</Badge>
-                                    ) : (
-                                        <Badge className="bg-yellow-100 text-yellow-800">Unpaid</Badge>
-                                    )}
-                                    <Button
-                                        size="sm"
-                                        onClick={() => handleJoinAccepted(booking)}
-                                        className={`${isJoinEnabled(booking) ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-200 text-gray-600'}`}
-                                        disabled={!isJoinEnabled(booking) || (!booking?.meetingLink && !booking?.meetingRoomId)}
-                                    >
-                                        <Video className="h-4 w-4 mr-1" />
-                                        {isJoinEnabled(booking) ? 'Join Now' : 'Join Class'}
-                                    </Button>
-                                </div>
-                            }
-                        />
-                    ))
+                    acceptedBookings.map((booking) => {
+                        const manualPayment = manualPaymentMap[booking._id]
+                        const paymentStatus = manualPayment?.paymentStatus
+                        const needsVerification = paymentStatus === 'submitted'
+                        
+                        return (
+                            <BookingItem
+                                key={booking._id}
+                                booking={booking}
+                                right={
+                                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                                        <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
+                                        {/* Show manual payment status if available */}
+                                        {paymentStatus && getManualPaymentStatusBadge(paymentStatus)}
+                                        {/* Show legacy paid/unpaid badge if no manual payment */}
+                                        {!paymentStatus && (
+                                            paidMap[booking._id] ? (
+                                                <Badge className="bg-green-100 text-green-800">Paid</Badge>
+                                            ) : (
+                                                <Badge className="bg-yellow-100 text-yellow-800">Unpaid</Badge>
+                                            )
+                                        )}
+                                        {/* Teacher verification button when payment submitted */}
+                                        {needsVerification && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setVerifyingBooking(booking)}
+                                                className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                                            >
+                                                <Eye className="h-4 w-4 mr-1" />
+                                                Review Payment
+                                            </Button>
+                                        )}
+                                        <Button
+                                            size="sm"
+                                            onClick={() => handleJoinAccepted(booking)}
+                                            className={`${isJoinEnabled(booking) && paidMap[booking._id] ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-200 text-gray-600'}`}
+                                            disabled={!isJoinEnabled(booking) || !paidMap[booking._id] || (!booking?.meetingLink && !booking?.meetingRoomId)}
+                                        >
+                                            <Video className="h-4 w-4 mr-1" />
+                                            {isJoinEnabled(booking) ? 'Join Now' : 'Join Class'}
+                                        </Button>
+                                    </div>
+                                }
+                            />
+                        )
+                    })
                 )}
             </section>
 
@@ -335,6 +457,137 @@ export default function BookingsPage() {
                     ))
                 )}
             </section>
+
+            {/* Payment Verification Dialog */}
+            {verifyingBooking && (
+                <Dialog open={!!verifyingBooking && !rejectDialogOpen} onOpenChange={(open) => !open && setVerifyingBooking(null)}>
+                    <DialogContent className="max-w-lg">
+                        <DialogHeader>
+                            <DialogTitle>Review Payment Proof</DialogTitle>
+                            <DialogDescription>
+                                Verify the payment details submitted by {verifyingBooking.student?.name}
+                            </DialogDescription>
+                        </DialogHeader>
+                        
+                        {manualPaymentMap[verifyingBooking._id] && (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p className="text-gray-500">Class</p>
+                                        <p className="font-medium">{verifyingBooking.gig?.title}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500">Amount Expected</p>
+                                        <p className="font-medium text-green-600">৳{manualPaymentMap[verifyingBooking._id]?.amountExpected}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500">Payment Method</p>
+                                        <p className="font-medium capitalize">{manualPaymentMap[verifyingBooking._id]?.method}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500">Amount Paid</p>
+                                        <p className="font-medium">৳{manualPaymentMap[verifyingBooking._id]?.amountPaid}</p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="text-gray-500">Transaction ID</p>
+                                        <p className="font-mono font-medium bg-gray-100 px-2 py-1 rounded">
+                                            {manualPaymentMap[verifyingBooking._id]?.trxid}
+                                        </p>
+                                    </div>
+                                    {manualPaymentMap[verifyingBooking._id]?.senderNumber && (
+                                        <div>
+                                            <p className="text-gray-500">Sender Number</p>
+                                            <p className="font-medium">{manualPaymentMap[verifyingBooking._id]?.senderNumber}</p>
+                                        </div>
+                                    )}
+                                    <div>
+                                        <p className="text-gray-500">Submitted At</p>
+                                        <p className="font-medium">
+                                            {manualPaymentMap[verifyingBooking._id]?.submittedAt 
+                                                ? new Date(manualPaymentMap[verifyingBooking._id].submittedAt).toLocaleString()
+                                                : 'N/A'}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                {manualPaymentMap[verifyingBooking._id]?.screenshotUrl && (
+                                    <div>
+                                        <p className="text-gray-500 text-sm mb-2">Payment Screenshot</p>
+                                        <img 
+                                            src={manualPaymentMap[verifyingBooking._id].screenshotUrl} 
+                                            alt="Payment screenshot"
+                                            className="max-w-full rounded-lg border"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        <DialogFooter className="gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setRejectDialogOpen(true)
+                                }}
+                                disabled={actionLoading}
+                                className="text-red-600 border-red-300 hover:bg-red-50"
+                            >
+                                <X className="h-4 w-4 mr-1" />
+                                Reject
+                            </Button>
+                            <Button
+                                onClick={() => handleVerifyPayment(verifyingBooking._id)}
+                                disabled={actionLoading}
+                                className="bg-green-600 hover:bg-green-700"
+                            >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                {actionLoading ? 'Verifying...' : 'Verify Payment'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            )}
+
+            {/* Reject Reason Dialog */}
+            <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reject Payment</DialogTitle>
+                        <DialogDescription>
+                            Please provide a reason for rejecting this payment. The student will be notified.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <Label htmlFor="rejectReason">Rejection Reason</Label>
+                        <Textarea
+                            id="rejectReason"
+                            placeholder="e.g., Transaction ID not found, amount mismatch, etc."
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            rows={3}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setRejectDialogOpen(false)
+                                setRejectReason("")
+                            }}
+                            disabled={actionLoading}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleRejectPayment}
+                            disabled={actionLoading || !rejectReason.trim()}
+                            variant="destructive"
+                        >
+                            {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

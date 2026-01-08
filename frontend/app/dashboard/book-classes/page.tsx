@@ -16,7 +16,6 @@ import {
     Filter,
     Star,
     Clock,
-    DollarSign,
     Users,
     Video,
     Calendar,
@@ -179,10 +178,10 @@ export default function BookClassesPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Prices</SelectItem>
-                                <SelectItem value="0-25">$0 - $25</SelectItem>
-                                <SelectItem value="25-50">$25 - $50</SelectItem>
-                                <SelectItem value="50-100">$50 - $100</SelectItem>
-                                <SelectItem value="100">$100+</SelectItem>
+                                <SelectItem value="0-25">৳0 - ৳25</SelectItem>
+                                <SelectItem value="25-50">৳25 - ৳50</SelectItem>
+                                <SelectItem value="50-100">৳50 - ৳100</SelectItem>
+                                <SelectItem value="100">৳100+</SelectItem>
                             </SelectContent>
                         </Select>
 
@@ -278,8 +277,8 @@ export default function BookClassesPage() {
                                 {/* Price and Book Button */}
                                 <div className="flex items-center justify-between pt-2 border-t">
                                     <div className="flex items-center gap-1">
-                                        <DollarSign className="h-4 w-4 text-green-600" />
-                                        <span className="text-lg font-bold text-green-600">${gig.price}</span>
+                                        <span className="h-4 w-4 text-green-600 leading-none">৳</span>
+                                        <span className="text-lg font-bold text-green-600">{gig.price}</span>
                                         <span className="text-sm text-gray-500">/ session</span>
                                     </div>
                                     <div className="flex items-center gap-2">

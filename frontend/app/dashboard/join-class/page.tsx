@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { api, bookingsApi, paymentsApi } from "@/services/api"
+import { api, bookingsApi, paymentsApi, manualPaymentApi } from "@/services/api"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -17,10 +17,14 @@ import {
     User,
     ExternalLink,
     Search,
-    Play
+    Play,
+    CreditCard
 } from "lucide-react"
 import PaymentButton from "@/components/PaymentButton"
 import { useUser } from "@clerk/nextjs"
+
+const ENABLE_PAYMENTS = process.env.NEXT_PUBLIC_ENABLE_PAYMENTS === "true"
+const USE_MANUAL_PAYMENT = process.env.NEXT_PUBLIC_USE_MANUAL_PAYMENT !== "false"
 
 interface Booking {
     _id: string
@@ -66,36 +70,17 @@ export default function JoinClassPage() {
     const { toast } = useToast()
     // Track payment status per booking for current student
     const [paidMap, setPaidMap] = useState<Record<string, boolean>>({})
+    // Track manual payment status per booking
+    const [manualPaymentMap, setManualPaymentMap] = useState<Record<string, any>>({})
 
     useEffect(() => {
-        const syncAndFetch = async () => {
-            try {
-                if (!isLoaded) return
-                if (!isSignedIn) return
-                // Ensure backend token is present; if not, sync it
-                let token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-                if (!token && user?.primaryEmailAddress?.emailAddress) {
-                    try {
-                        const email = user.primaryEmailAddress.emailAddress
-                        const name = user.fullName || undefined
-                        const res = await api.post('/auth/clerk-sync', { email, name })
-                        const { token: t, user: backendUser } = res.data || {}
-                        if (t) {
-                            localStorage.setItem('token', t)
-                        }
-                        if (backendUser) {
-                            localStorage.setItem('user', JSON.stringify(backendUser))
-                        }
-                    } catch (e) {
-                        // ignore and let request fail gracefully
-                    }
-                }
-                await fetchBookings()
-            } finally {
-                // loading state handled in fetchBookings
-            }
+        const fetchData = async () => {
+            if (!isLoaded) return
+            if (!isSignedIn) return
+            // Providers already synced token, just load data
+            await fetchBookings()
         }
-        syncAndFetch()
+        fetchData()
     }, [isLoaded, isSignedIn, user?.id])
 
     // No separate filtered state; we'll derive groupings in render from searchTerm
@@ -111,19 +96,35 @@ export default function JoinClassPage() {
         try {
             const response = await bookingsApi.getMyBookings()
             setBookings(response.data)
-            // After loading bookings, prefetch payment status for accepted bookings (per booking, not per gig)
+            
             const accepted = (response.data || []).filter((b: Booking) => b.status === "accepted")
-            const entries = await Promise.all(
-              accepted.map(async (bk: Booking) => {
+            const paidResults: Record<string, boolean> = {}
+            const manualResults: Record<string, any> = {}
+            
+            await Promise.all(accepted.map(async (bk: Booking) => {
                 try {
-                  const st = await paymentsApi.getBookingStatus(bk._id)
-                  return [bk._id, !!st?.paid] as const
+                    // Check manual payment status first
+                    const manualSt = await manualPaymentApi.getPaymentStatus(bk._id)
+                    manualResults[bk._id] = manualSt?.data || null
+                    
+                    // Consider verified manual payment as paid
+                    if (manualSt?.data?.paymentStatus === 'verified') {
+                        paidResults[bk._id] = true
+                    } else if (ENABLE_PAYMENTS) {
+                        // Fallback to SSLCommerz check
+                        const st = await paymentsApi.getBookingStatus(bk._id)
+                        paidResults[bk._id] = !!st?.paid
+                    } else {
+                        paidResults[bk._id] = false
+                    }
                 } catch {
-                  return [bk._id, false] as const
+                    paidResults[bk._id] = false
+                    manualResults[bk._id] = null
                 }
-              })
-            )
-            setPaidMap(Object.fromEntries(entries))
+            }))
+            
+            setPaidMap(paidResults)
+            setManualPaymentMap(manualResults)
         } catch (error) {
             console.error("Error fetching bookings:", error)
             toast({
@@ -140,15 +141,27 @@ export default function JoinClassPage() {
 
     const handleJoinClass = (booking: Booking) => {
         const minutes = booking.gig?.duration || 90
-        // Require successful payment before allowing to join (student side)
-        const paid = paidMap[booking._id] === true
-        if (!paid) {
-            toast({
-                title: "Payment Required",
-                description: "Please complete the payment to join this class.",
-                variant: "destructive"
-            })
+        const manualPayment = manualPaymentMap[booking._id]
+        const manualPaymentStatus = manualPayment?.paymentStatus
+        
+        // Check if manual payment is required but not verified
+        if (USE_MANUAL_PAYMENT && manualPaymentStatus && manualPaymentStatus !== 'verified') {
+            // Redirect to payment boarding page
+            router.push(`/dashboard/bookings/${booking._id}/payment`)
             return
+        }
+        
+        // Legacy SSLCommerz payment check
+        if (ENABLE_PAYMENTS && !USE_MANUAL_PAYMENT) {
+            const paid = paidMap[booking._id] === true
+            if (!paid) {
+                toast({
+                    title: "Payment Required",
+                    description: "Please complete the payment to join this class.",
+                    variant: "destructive"
+                })
+                return
+            }
         }
         if (booking.meetingRoomId) {
             router.push(`/dashboard/video-call/${booking.meetingRoomId}?minutes=${minutes}`)
@@ -212,8 +225,34 @@ export default function JoinClassPage() {
     const isJoinEnabled = (bk: Booking) => {
         const { windowOpen, windowClose } = getTimes(bk)
         const withinWindow = nowTs >= windowOpen && nowTs <= windowClose
+        
+        // Check manual payment status
+        const manualPayment = manualPaymentMap[bk._id]
+        if (USE_MANUAL_PAYMENT && manualPayment?.paymentStatus) {
+            return withinWindow && manualPayment.paymentStatus === 'verified'
+        }
+        
+        // Legacy payment check
+        if (!ENABLE_PAYMENTS) return withinWindow
         const paid = paidMap[bk._id] === true
         return withinWindow && paid
+    }
+    
+    const getManualPaymentStatusBadge = (status: string) => {
+        switch (status) {
+            case 'pending_manual':
+                return <Badge className="bg-yellow-100 text-yellow-800">Payment Required</Badge>
+            case 'submitted':
+                return <Badge className="bg-blue-100 text-blue-800">Awaiting Verification</Badge>
+            case 'verified':
+                return <Badge className="bg-green-100 text-green-800">Payment Verified</Badge>
+            case 'rejected':
+                return <Badge className="bg-red-100 text-red-800">Payment Rejected</Badge>
+            case 'expired':
+                return <Badge className="bg-gray-100 text-gray-800">Payment Expired</Badge>
+            default:
+                return null
+        }
     }
 
     const formatDateTime = (bk: Booking) => {
@@ -425,8 +464,22 @@ export default function JoinClassPage() {
                                                 </Button>
                                               )}
 
-                                              {booking.status === 'accepted' && !isPaid && booking.gig?._id && (
-                                                <PaymentButton gigId={booking.gig._id} bookingId={booking._id} amount={((booking as any).gig?.price || 0)} className="w-full" buttonClassName="w-full h-10" />
+                                              {/* Manual Payment Button */}
+                                              {booking.status === 'accepted' && USE_MANUAL_PAYMENT && manualPaymentMap[booking._id]?.paymentStatus && manualPaymentMap[booking._id]?.paymentStatus !== 'verified' && (
+                                                <Button
+                                                  onClick={() => router.push(`/dashboard/bookings/${booking._id}/payment`)}
+                                                  className="w-full h-10 bg-indigo-600 hover:bg-indigo-700"
+                                                >
+                                                  <CreditCard className="h-4 w-4 mr-2" />
+                                                  {manualPaymentMap[booking._id]?.paymentStatus === 'submitted' ? 'View Payment Status' : 'Complete Payment'}
+                                                </Button>
+                                              )}
+
+                                              {/* Legacy SSLCommerz Payment Button */}
+                                              {booking.status === 'accepted' && !isPaid && !USE_MANUAL_PAYMENT && booking.gig?._id && (
+                                                (ENABLE_PAYMENTS ? (
+                                                  <PaymentButton gigId={booking.gig._id} bookingId={booking._id} amount={((booking as any).gig?.price || 0)} className="w-full" buttonClassName="w-full h-10" />
+                                                ) : null)
                                               )}
 
                                             {booking.status === 'pending' && (

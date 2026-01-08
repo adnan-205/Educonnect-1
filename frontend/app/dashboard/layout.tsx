@@ -14,7 +14,8 @@ import {
     Settings,
     Video,
     User,
-    Star
+    Star,
+    CreditCard
 } from "lucide-react"
 
 export default function DashboardLayout({
@@ -101,6 +102,7 @@ export default function DashboardLayout({
         { id: "students", label: "My Students", icon: Users, href: "/dashboard/students" },
         { id: "gigs", label: "My Gigs", icon: Star, href: "/dashboard/gigs" },
         { id: "earnings", label: "Earnings", icon: DollarSign, href: "/dashboard/earnings" },
+        { id: "payment-settings", label: "Payment Methods", icon: CreditCard, href: "/dashboard/payment-settings" },
         { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard/messages" },
         { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" }
     ] : userType === "admin" ? [

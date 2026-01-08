@@ -185,9 +185,9 @@ export default function BrowsePage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Prices</SelectItem>
-                                    <SelectItem value="under25">Under $25</SelectItem>
-                                    <SelectItem value="25-35">$25 - $35</SelectItem>
-                                    <SelectItem value="over35">Over $35</SelectItem>
+                                    <SelectItem value="under25">Under ৳25</SelectItem>
+                                    <SelectItem value="25-35">৳25 - ৳35</SelectItem>
+                                    <SelectItem value="over35">Over ৳35</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -220,7 +220,7 @@ export default function BrowsePage() {
                             <CardContent className="p-4">
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs rounded-full bg-primary/10 text-primary px-2 py-0.5">{gig.category}</span>
-                                    <div className="text-xs text-muted-foreground">${gig.price}/hr</div>
+                                    <div className="text-xs text-muted-foreground">৳{gig.price}/hr</div>
                                 </div>
                                 <div className="font-semibold leading-snug mb-1 line-clamp-2">{gig.title}</div>
                                 <div className="text-sm text-muted-foreground mb-3">by {gig.teacher.name}</div>

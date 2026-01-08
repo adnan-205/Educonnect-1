@@ -176,7 +176,7 @@ export function GigSearch({ className }: GigSearchProps) {
           type="number"
           inputMode="numeric"
           min={0}
-          placeholder="Max price ($)"
+          placeholder="Max price (৳)"
           value={maxPrice}
           onChange={(e) => setMaxPrice(e.target.value)}
           className="h-11 rounded-lg border bg-background px-3"
@@ -252,7 +252,7 @@ export function GigSearch({ className }: GigSearchProps) {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-2xl font-bold text-primary">${gig.price}</div>
+                            <div className="text-2xl font-bold text-primary">৳{gig.price}</div>
                             <div className="text-sm text-muted-foreground">per session</div>
                           </div>
                         </div>

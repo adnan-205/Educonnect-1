@@ -182,10 +182,10 @@ export default function GigsPage() {
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between text-sm">
                                         <div className="flex items-center gap-1 text-gray-600">
-                                            <DollarSign className="h-4 w-4" />
+                                            <span className="h-4 w-4 leading-none">৳</span>
                                             <span>Price</span>
                                         </div>
-                                        <span className="font-semibold">${gig.price}/hr</span>
+                                        <span className="font-semibold">৳{gig.price}/hr</span>
                                     </div>
                                     
                                     <div className="flex items-center justify-between text-sm">

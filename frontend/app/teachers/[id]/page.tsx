@@ -120,7 +120,7 @@ export default function PublicTeacherProfilePage() {
                             </Avatar>
                             <h3 className="font-semibold text-gray-900 mb-1">{gig.title}</h3>
                             <div className="flex items-center justify-center gap-6 mb-4 text-sm text-muted-foreground">
-                              <span>${gig.price}/hr</span>
+                              <span>৳{gig.price}/hr</span>
                               <span>{gig.duration} min</span>
                               <span>{gig.category}</span>
                             </div>

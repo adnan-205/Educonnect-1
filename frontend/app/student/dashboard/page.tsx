@@ -308,9 +308,9 @@ export default function StudentDashboard() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Prices</SelectItem>
-                      <SelectItem value="under25">Under $25</SelectItem>
-                      <SelectItem value="25-35">$25 - $35</SelectItem>
-                      <SelectItem value="over35">Over $35</SelectItem>
+                      <SelectItem value="under25">Under ৳25</SelectItem>
+                      <SelectItem value="25-35">৳25 - ৳35</SelectItem>
+                      <SelectItem value="over35">Over ৳35</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -345,7 +345,7 @@ export default function StudentDashboard() {
                             <p className="text-xs sm:text-sm text-muted-foreground truncate">by {gig.teacher.name}</p>
                           </div>
                           <div className="text-left sm:text-right">
-                            <div className="text-xl sm:text-2xl font-bold text-primary">${gig.price}</div>
+                            <div className="text-xl sm:text-2xl font-bold text-primary">৳{gig.price}</div>
                             <div className="text-xs sm:text-sm text-muted-foreground">per hour</div>
                           </div>
                         </div>
@@ -393,7 +393,7 @@ export default function StudentDashboard() {
                   <div>
                     <h4 className="font-semibold mb-2">{selectedGig.title}</h4>
                     <p className="text-sm text-muted-foreground mb-4">
-                      with {selectedGig.teacher.name} • ${selectedGig.price}/hour • {selectedGig.duration} min
+                      with {selectedGig.teacher.name} • ৳{selectedGig.price}/hour • {selectedGig.duration} min
                     </p>
                   </div>
                   

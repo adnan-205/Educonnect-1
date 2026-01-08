@@ -5,9 +5,9 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc --noCheck",
+    "build": "npm run clean && tsc --noCheck",
     "build:prod": "npm run clean && tsc --build",
-    "clean": "rimraf dist",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "test": "jest",
