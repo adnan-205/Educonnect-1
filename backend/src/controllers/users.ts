@@ -58,9 +58,18 @@ export const updateMe = async (req: Request, res: Response) => {
     // Onboarding fields
     if (typeof req.body.marketingSource === 'string') patch['marketingSource'] = req.body.marketingSource;
     if (typeof req.body.isOnboarded === 'boolean') patch['isOnboarded'] = req.body.isOnboarded;
-    // Optional role update (limit to known roles)
+    // Role update - only allow if user doesn't already have a role set (first-time onboarding)
+    // After initial role selection, role changes require admin/database intervention
     if (typeof req.body.role === 'string' && ['student','teacher','admin'].includes(req.body.role)) {
-      patch['role'] = req.body.role;
+      // Check if user already has a role set
+      const existingUser = await User.findById(userId).select('role isOnboarded');
+      const hasExistingRole = !!existingUser?.role;
+      if (!hasExistingRole) {
+        // First time setting role - allow it
+        patch['role'] = req.body.role;
+      }
+      // If user already has a role, silently ignore the role change request
+      // User must contact support to change role
     }
 
     // Nested profile fields via dot-notation (merges without wiping unspecified keys)

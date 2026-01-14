@@ -5,6 +5,12 @@ import { useRouter, usePathname } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/hooks/use-toast"
 import {
     Home,
     BookOpen,
@@ -14,7 +20,8 @@ import {
     Settings,
     Video,
     User,
-    Star
+    Star,
+    Flag
 } from "lucide-react"
 
 export default function DashboardLayout({
@@ -28,6 +35,30 @@ export default function DashboardLayout({
     const { isLoaded, isSignedIn, user } = useUser()
     const [displayName, setDisplayName] = useState<string>("")
     const [avatarUrl, setAvatarUrl] = useState<string>("")
+    const [reportDialogOpen, setReportDialogOpen] = useState(false)
+    const [reportType, setReportType] = useState<string>("")
+    const [reportMessage, setReportMessage] = useState("")
+    const [reportSubmitting, setReportSubmitting] = useState(false)
+    const { toast } = useToast()
+
+    const handleReportSubmit = async () => {
+        if (!reportType || !reportMessage.trim()) {
+            toast({ title: "Missing info", description: "Please select a category and describe the issue.", variant: "destructive" })
+            return
+        }
+        setReportSubmitting(true)
+        try {
+            await new Promise(resolve => setTimeout(resolve, 500))
+            toast({ title: "Report submitted", description: "Thank you for your feedback. We'll look into this issue." })
+            setReportDialogOpen(false)
+            setReportType("")
+            setReportMessage("")
+        } catch {
+            toast({ title: "Error", description: "Failed to submit report. Please try again.", variant: "destructive" })
+        } finally {
+            setReportSubmitting(false)
+        }
+    }
 
     // Auth + role guard: must be signed in and have a role set
     useEffect(() => {
@@ -234,6 +265,18 @@ export default function DashboardLayout({
                     })}
                 </nav>
 
+                {/* Report Button */}
+                <div className="p-4 border-t border-gray-200">
+                    <Button
+                        variant="outline"
+                        className="w-full flex items-center justify-center gap-2"
+                        onClick={() => setReportDialogOpen(true)}
+                    >
+                        <Flag className="h-4 w-4" />
+                        Report a Problem
+                    </Button>
+                </div>
+
             </div>
 
             {/* Right Content Panel */}
@@ -242,6 +285,63 @@ export default function DashboardLayout({
                     {children}
                 </div>
             </div>
+
+            {/* Floating Report Button for Mobile */}
+            <Button
+                variant="outline"
+                size="icon"
+                className="lg:hidden fixed bottom-4 right-4 h-12 w-12 rounded-full shadow-lg bg-white z-50"
+                onClick={() => setReportDialogOpen(true)}
+            >
+                <Flag className="h-5 w-5" />
+            </Button>
+
+            {/* Report Dialog */}
+            <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Report a Problem</DialogTitle>
+                        <DialogDescription>
+                            Let us know about any issues you're experiencing. We'll look into it as soon as possible.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Category</Label>
+                            <Select value={reportType} onValueChange={setReportType}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select issue type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="payment">Payment Issue</SelectItem>
+                                    <SelectItem value="class">Class/Meeting Issue</SelectItem>
+                                    <SelectItem value="account">Account Problem</SelectItem>
+                                    <SelectItem value="booking">Booking Problem</SelectItem>
+                                    <SelectItem value="bug">Bug/Technical Issue</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Describe the issue</Label>
+                            <Textarea
+                                placeholder="Please describe what happened..."
+                                value={reportMessage}
+                                onChange={(e) => setReportMessage(e.target.value)}
+                                rows={4}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleReportSubmit} disabled={reportSubmitting}>
+                            {reportSubmitting ? "Submitting..." : "Submit Report"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

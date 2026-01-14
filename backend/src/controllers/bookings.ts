@@ -209,9 +209,11 @@ export const getBookingByRoom = async (req: Request, res: Response) => {
     }
 
     // Enforce per-booking payment for students before joining
+    // Check both SSLCommerz payments AND manual payment verification
     if (isStudent) {
-      const paid = await Payment.findOne({ bookingId: (booking as any)._id, studentId: req.user._id, status: 'SUCCESS' }).select('_id');
-      if (!paid) {
+      const sslPaid = await Payment.findOne({ bookingId: (booking as any)._id, studentId: req.user._id, status: 'SUCCESS' }).select('_id');
+      const manualVerified = (booking as any).manualPayment?.status === 'verified';
+      if (!sslPaid && !manualVerified) {
         return res.status(402).json({ success: false, message: 'Payment required to join this class' });
       }
     }

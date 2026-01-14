@@ -77,8 +77,8 @@ export default function DashboardPage() {
                     setTeacherBookings(upcoming)
                 }
 
-                // Student notifications for status changes
-                if (typeof window !== "undefined") {
+                // Student notifications for status changes (only show to students, not teachers)
+                if (typeof window !== "undefined" && role === "student") {
                     const key = "booking_status_notifications"
                     let cache: Record<string, string> = {}
                     try {

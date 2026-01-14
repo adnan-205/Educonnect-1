@@ -19,18 +19,27 @@ export default function OnboardingPage() {
   const [marketingSource, setMarketingSource] = useState("")
   const [loading, setLoading] = useState(false)
 
+  const [isAlreadyOnboarded, setIsAlreadyOnboarded] = useState(false)
+  const [existingRole, setExistingRole] = useState<string | null>(null)
+
   useEffect(() => {
     // Prefill from localStorage if available
     try {
       const userStr = typeof window !== "undefined" ? localStorage.getItem("user") : null
       if (userStr) {
         const u = JSON.parse(userStr)
-        if (u?.role) setRole(u.role)
+        if (u?.role) {
+          setRole(u.role)
+          setExistingRole(u.role)
+        }
         if (u?.marketingSource) setMarketingSource(u.marketingSource)
         if (u?.isOnboarded === true) {
-          // If already onboarded, go to dashboard
-          router.replace("/dashboard")
-          return
+          // If already onboarded and has role, go to dashboard
+          if (u?.role) {
+            router.replace("/dashboard")
+            return
+          }
+          setIsAlreadyOnboarded(true)
         }
       }
     } catch { }
@@ -107,7 +116,11 @@ export default function OnboardingPage() {
 
               <div className="space-y-2">
                 <Label>Role</Label>
-                <Select value={role} onValueChange={(v) => setRole(v as any)}>
+                <Select 
+                  value={role} 
+                  onValueChange={(v) => setRole(v as any)}
+                  disabled={!!existingRole}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
@@ -116,6 +129,12 @@ export default function OnboardingPage() {
                     <SelectItem value="teacher">Teacher</SelectItem>
                   </SelectContent>
                 </Select>
+                {existingRole && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Your role is locked as <span className="font-semibold capitalize">{existingRole}</span>. 
+                    To change your role, please contact support.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
