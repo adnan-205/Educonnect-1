@@ -55,8 +55,44 @@ const gigSchema = new mongoose.Schema<IGig>({
     }],
     times: [String],
   },
+  // Ranking & Promotion fields (like Upwork/Fiverr)
+  isFeatured: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  isPromoted: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  promotedUntil: {
+    type: Date,
+    default: null,
+  },
+  completedBookingsCount: {
+    type: Number,
+    default: 0,
+    min: 0,
+    index: true,
+  },
+  viewsCount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  // Ranking score computed from multiple factors
+  rankingScore: {
+    type: Number,
+    default: 0,
+    index: true,
+  },
 }, {
   timestamps: true,
 });
+
+// Compound index for efficient category + ranking queries
+gigSchema.index({ category: 1, rankingScore: -1 });
+gigSchema.index({ category: 1, isFeatured: -1, isPromoted: -1, rankingScore: -1 });
 
 export default mongoose.model<IGig>('Gig', gigSchema);

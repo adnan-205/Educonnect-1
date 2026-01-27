@@ -54,6 +54,16 @@ export const reviewsApi = {
       throw error;
     }
   },
+
+  replyToReview: async (reviewId: string, reply: string) => {
+    try {
+      const response = await api.put(`/reviews/${encodeURIComponent(reviewId)}/reply`, { reply });
+      return response.data; // { success, data }
+    } catch (error) {
+      console.error(`Error replying to review ${reviewId}:`, error);
+      throw error;
+    }
+  },
 };
 
 export const adminApi = {
@@ -468,9 +478,9 @@ api.interceptors.response.use(
 );
 
 export const gigsApi = {
-  getAllGigs: async () => {
+  getAllGigs: async (params?: { category?: string; sort?: string; page?: number; limit?: number }) => {
     try {
-      const response = await api.get('/gigs');
+      const response = await api.get('/gigs', { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching gigs:', error);

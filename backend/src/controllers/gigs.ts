@@ -2,17 +2,68 @@ import { Request, Response } from 'express';
 import Gig from '../models/Gig';
 import Payment from '../models/Payment';
 import { logActivity } from '../utils/activityLogger';
+import { isValidCategory, ALLOWED_CATEGORIES } from '../constants/categories';
 
-// Get all gigs
+// Get all gigs with ranking-based sorting (like Upwork/Fiverr)
 export const getGigs = async (req: Request, res: Response) => {
   try {
-    const gigs = await Gig.find().populate('teacher', 'name email');
+    const { category, sort, page = 1, limit = 50 } = req.query;
+    const filter: any = {};
+    
+    // Filter by category if provided
+    if (category && typeof category === 'string') {
+      filter.category = { $regex: new RegExp(`^${category}$`, 'i') };
+    }
+
+    // Check and clear expired promotions (promotedUntil < now)
+    await Gig.updateMany(
+      { isPromoted: true, promotedUntil: { $lt: new Date() } },
+      { $set: { isPromoted: false, promotedUntil: null } }
+    );
+
+    // Default sort: Featured first, then Promoted, then by rankingScore, then by rating
+    let sortOption: any = {
+      isFeatured: -1,
+      isPromoted: -1,
+      rankingScore: -1,
+      averageRating: -1,
+      completedBookingsCount: -1,
+      createdAt: -1,
+    };
+
+    // Allow custom sort options
+    if (sort === 'newest') {
+      sortOption = { createdAt: -1 };
+    } else if (sort === 'price_low') {
+      sortOption = { price: 1, rankingScore: -1 };
+    } else if (sort === 'price_high') {
+      sortOption = { price: -1, rankingScore: -1 };
+    } else if (sort === 'rating') {
+      sortOption = { averageRating: -1, reviewsCount: -1, rankingScore: -1 };
+    } else if (sort === 'popular') {
+      sortOption = { completedBookingsCount: -1, averageRating: -1, rankingScore: -1 };
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const [gigs, total] = await Promise.all([
+      Gig.find(filter)
+        .populate('teacher', 'name email avatar teacherRatingAverage')
+        .sort(sortOption)
+        .skip(skip)
+        .limit(Number(limit)),
+      Gig.countDocuments(filter),
+    ]);
+
     res.json({
       success: true,
       count: gigs.length,
+      total,
+      page: Number(page),
+      totalPages: Math.ceil(total / Number(limit)),
       data: gigs,
     });
   } catch (err) {
+    console.error('getGigs error:', err);
     res.status(500).json({
       success: false,
       message: 'Error fetching gigs',
@@ -59,6 +110,9 @@ export const createGig = async (req: Request, res: Response) => {
 
     if (!title || !description || !category) {
       return res.status(400).json({ success: false, message: 'Validation failed', errors: ['title, description, and category are required'] });
+    }
+    if (!isValidCategory(String(category))) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: [`Invalid category. Allowed: ${ALLOWED_CATEGORIES.join(', ')}`] });
     }
     const priceNum = Number(price);
     const durationNum = Number(duration);
@@ -130,6 +184,10 @@ export const updateGig = async (req: Request, res: Response) => {
     }
 
     const updateDoc = req.body;
+    // Validate category if being updated
+    if (updateDoc.category && !isValidCategory(String(updateDoc.category))) {
+      return res.status(400).json({ success: false, message: 'Validation failed', errors: [`Invalid category. Allowed: ${ALLOWED_CATEGORIES.join(', ')}`] });
+    }
     gig = await Gig.findByIdAndUpdate(req.params.id, updateDoc, {
       new: true,
       runValidators: true,

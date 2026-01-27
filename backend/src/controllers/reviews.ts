@@ -278,6 +278,50 @@ export const updateReview = async (req: Request, res: Response) => {
   }
 };
 
+// PUT /api/reviews/:id/reply - Teacher replies to a review
+export const replyToReview = async (req: Request, res: Response) => {
+  try {
+    const doc = await Review.findById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, message: 'Review not found' });
+
+    // Only the teacher of this gig can reply
+    if (!req.user || req.user.role !== 'teacher') {
+      return res.status(403).json({ success: false, message: 'Only teachers can reply to reviews' });
+    }
+
+    if (String(doc.teacher) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'You can only reply to reviews on your own gigs' });
+    }
+
+    const { reply } = req.body || {};
+    if (!reply || typeof reply !== 'string' || !reply.trim()) {
+      return res.status(400).json({ success: false, message: 'Reply text is required' });
+    }
+
+    const updated = await Review.findByIdAndUpdate(
+      doc._id,
+      { teacherReply: reply.trim(), teacherReplyAt: new Date() },
+      { new: true }
+    );
+
+    try {
+      await logActivity({
+        userId: req.user._id,
+        action: 'review.reply',
+        targetType: 'Review',
+        targetId: doc._id,
+        metadata: { gigId: String(doc.gig) },
+        req,
+      });
+    } catch {}
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error('replyToReview error:', err);
+    res.status(500).json({ success: false, message: 'Error replying to review' });
+  }
+};
+
 // DELETE /api/reviews/:id
 export const deleteReview = async (req: Request, res: Response) => {
   try {

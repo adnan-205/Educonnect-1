@@ -9,7 +9,7 @@ export interface JitsiMeetingProps {
   userEmail?: string;
   endAfterMinutes?: number; // auto-end after N minutes from join; default 90
   onMeetingJoined?: () => void;
-  onMeetingEnd?: () => void; // fires after hangup/close
+  onMeetingEnd?: (reason: 'duration' | 'participant_left' | 'hangup' | 'unknown') => void; // fires after hangup/close with reason
   className?: string;
   roleForThisBooking?: 'teacher' | 'student';
   meetingPassword?: string;
@@ -37,9 +37,13 @@ export default function JitsiMeeting({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const endTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const joinedRef = useRef<boolean>(false);
   const instanceRef = useRef<any>(null);
   const router = useRouter();
+  const cleanupExecutedRef = useRef<boolean>(false);
+  const hadMultipleParticipantsRef = useRef<boolean>(false); // Track if we ever had 2+ participants
+  const endReasonRef = useRef<'duration' | 'participant_left' | 'hangup' | 'unknown'>('unknown');
 
   useEffect(() => {
     const raw = process.env.NEXT_PUBLIC_JITSI_DOMAIN || "meet.jit.si";
@@ -138,6 +142,76 @@ export default function JitsiMeeting({
         setApi(apiInstance);
         instanceRef.current = apiInstance;
 
+        // Track participant count and handle leave logic
+        const LEAVE_TIMEOUT_MS = 30000; // 30 seconds wait after someone leaves
+        
+        const handleParticipantLeft = () => {
+          // Only trigger countdown if we previously had multiple participants
+          if (!hadMultipleParticipantsRef.current || !joinedRef.current) {
+            console.log('Participant left but we never had multiple participants, ignoring...');
+            return;
+          }
+          
+          try {
+            const participants = apiInstance.getParticipantsInfo();
+            const count = participants ? participants.length : 0;
+            console.log(`Participant left. Current count: ${count}`);
+            
+            // If only this user remains (count <= 1), start 30-second countdown
+            if (count <= 1) {
+              console.log('Only one participant remaining, starting 30-second countdown...');
+              
+              // Clear any existing leave timer
+              if (leaveTimerRef.current) {
+                clearTimeout(leaveTimerRef.current);
+              }
+              
+              leaveTimerRef.current = setTimeout(() => {
+                // Double-check participant count before ending
+                try {
+                  const currentParticipants = apiInstance.getParticipantsInfo();
+                  if (currentParticipants && currentParticipants.length <= 1) {
+                    console.log('30 seconds passed, ending call due to participant leaving...');
+                    endReasonRef.current = 'participant_left';
+                    apiInstance.executeCommand("hangup");
+                  } else {
+                    console.log('Someone rejoined, cancelling auto-end.');
+                  }
+                } catch (_) {
+                  // If we can't check, end the call anyway
+                  endReasonRef.current = 'participant_left';
+                  try { apiInstance.executeCommand("hangup"); } catch (_) {}
+                }
+              }, LEAVE_TIMEOUT_MS);
+            }
+          } catch (_) {
+            // API might not be ready
+          }
+        };
+        
+        const handleParticipantJoined = () => {
+          console.log('Participant joined');
+          
+          // Clear any pending leave timer since someone joined
+          if (leaveTimerRef.current) {
+            console.log('Clearing leave timer - someone joined');
+            clearTimeout(leaveTimerRef.current);
+            leaveTimerRef.current = null;
+          }
+          
+          try {
+            const participants = apiInstance.getParticipantsInfo();
+            const count = participants ? participants.length : 0;
+            console.log(`Participant count after join: ${count}`);
+            
+            // Mark that we've had multiple participants (class actually started)
+            if (count >= 2) {
+              hadMultipleParticipantsRef.current = true;
+              console.log('Class has started with multiple participants');
+            }
+          } catch (_) {}
+        };
+
         apiInstance.addEventListener("videoConferenceJoined", () => {
           setIsLoading(false);
           joinedRef.current = true;
@@ -151,6 +225,8 @@ export default function JitsiMeeting({
           if (!autoEndDisabled) {
             const ms = Math.max(1, endAfterMinutes) * 60 * 1000;
             endTimerRef.current = setTimeout(() => {
+              console.log(`Class duration (${endAfterMinutes} min) ended, hanging up...`);
+              endReasonRef.current = 'duration';
               try {
                 apiInstance.executeCommand("hangup");
               } catch (_) {
@@ -159,6 +235,10 @@ export default function JitsiMeeting({
             }, ms);
           }
         });
+
+        // Monitor participant join/leave events
+        apiInstance.addEventListener('participantJoined', handleParticipantJoined);
+        apiInstance.addEventListener('participantLeft', handleParticipantLeft);
 
         // Student: auto-submit password when required (if teacher has set one)
         apiInstance.addEventListener('passwordRequired', () => {
@@ -172,11 +252,21 @@ export default function JitsiMeeting({
           if (!joinedRef.current) {
             return;
           }
+          // Prevent duplicate cleanup
+          if (cleanupExecutedRef.current) {
+            return;
+          }
+          cleanupExecutedRef.current = true;
+
           if (endTimerRef.current) {
             clearTimeout(endTimerRef.current);
             endTimerRef.current = null;
           }
-          onMeetingEnd?.();
+          if (leaveTimerRef.current) {
+            clearTimeout(leaveTimerRef.current);
+            leaveTimerRef.current = null;
+          }
+          onMeetingEnd?.(endReasonRef.current);
           // Also navigate back to dashboard as a convenience
           try {
             router.push("/dashboard");
@@ -187,6 +277,25 @@ export default function JitsiMeeting({
 
         apiInstance.addEventListener("videoConferenceLeft", handleClose);
         apiInstance.addEventListener("readyToClose", handleClose);
+
+        // Handle browser/tab close - ensure hangup is called
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+          if (joinedRef.current && instanceRef.current) {
+            try {
+              instanceRef.current.executeCommand("hangup");
+            } catch (_) {}
+          }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        // Store cleanup function to remove listener later
+        const cleanup = () => {
+          window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+
+        // Return cleanup reference (will be called in the main useEffect cleanup)
+        (apiInstance as any)._internalCleanup = cleanup;
       } catch (e: any) {
         setError(e?.message || "Failed to start meeting");
       } finally {
@@ -198,9 +307,16 @@ export default function JitsiMeeting({
 
     return () => {
       if (endTimerRef.current) clearTimeout(endTimerRef.current);
+      if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+      // Call stored cleanup if exists
+      try { 
+        const cleanup = (instanceRef.current as any)?._internalCleanup;
+        if (cleanup) cleanup();
+      } catch (_) {}
       try { instanceRef.current?.dispose?.(); } catch (_) {}
       try { api?.dispose?.(); } catch (_) {}
       instanceRef.current = null;
+      cleanupExecutedRef.current = false;
       try { if (containerRef.current) containerRef.current.innerHTML = ''; } catch (_) {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

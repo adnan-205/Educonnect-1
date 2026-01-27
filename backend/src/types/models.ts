@@ -97,6 +97,13 @@ export interface IGig {
   };
   averageRating?: number;
   reviewsCount?: number;
+  // Ranking & Promotion fields (like Upwork/Fiverr)
+  isFeatured?: boolean;
+  isPromoted?: boolean;
+  promotedUntil?: Date | null;
+  completedBookingsCount?: number;
+  viewsCount?: number;
+  rankingScore?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -210,6 +217,8 @@ export interface IReview {
   rating: number; // 1..5
   title?: string;
   comment?: string;
+  teacherReply?: string; // Teacher's response to the review
+  teacherReplyAt?: Date; // When the teacher replied
   createdAt: Date;
   updatedAt: Date;
 }

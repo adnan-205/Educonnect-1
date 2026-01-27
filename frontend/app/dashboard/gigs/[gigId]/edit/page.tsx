@@ -11,15 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { gigsApi, uploadsApi } from "@/services/api"
 import { Loader2 } from "lucide-react"
-
-const CATEGORIES = [
-  "Mathematics",
-  "Science",
-  "English",
-  "History",
-  "Computer Science",
-  "Art",
-]
+import { CATEGORY_KEYS } from "@/lib/constants/categories"
 
 interface Gig {
   _id: string
@@ -214,7 +206,7 @@ export default function EditGigPage() {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((c) => (
+                    {CATEGORY_KEYS.map((c) => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
                   </SelectContent>
