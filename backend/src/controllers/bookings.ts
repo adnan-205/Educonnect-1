@@ -3,6 +3,7 @@ import Booking from '../models/Booking';
 import Gig from '../models/Gig';
 import Payment from '../models/Payment';
 import { logActivity } from '../utils/activityLogger';
+import { invalidateCache, invalidateRelatedCache } from '../middleware/cache';
 import crypto from 'crypto';
 
 // Helper to slugify gig title
@@ -274,6 +275,11 @@ export const createBooking = async (req: Request, res: Response) => {
 
     const booking = await Booking.create(req.body);
 
+    // Invalidate cache for student and teacher
+    const studentId = req.user._id.toString();
+    const teacherId = gig.teacher.toString();
+    await invalidateRelatedCache([studentId, teacherId], 'bookings');
+
     await logActivity({
       userId: (req as any)?.user?._id,
       action: 'booking.create',
@@ -368,6 +374,13 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
     }
 
     await booking.save();
+
+    // Invalidate cache for student and teacher
+    const studentId = booking.student.toString();
+    const teacherId = gig?.teacher.toString();
+    if (studentId && teacherId) {
+      await invalidateRelatedCache([studentId, teacherId], 'bookings');
+    }
 
     await logActivity({
       userId: (req as any)?.user?._id,
