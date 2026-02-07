@@ -55,6 +55,16 @@ export const reviewsApi = {
     }
   },
 
+  batchCheckStatus: async (gigIds: string[]) => {
+    try {
+      const response = await api.post('/reviews/batch-status', { gigIds });
+      return response.data; // { success, data: { [gigId]: boolean } }
+    } catch (error) {
+      console.error('Error batch checking review status:', error);
+      throw error;
+    }
+  },
+
   replyToReview: async (reviewId: string, reply: string) => {
     try {
       const response = await api.put(`/reviews/${encodeURIComponent(reviewId)}/reply`, { reply });
@@ -209,6 +219,16 @@ export const usersApi = {
       return response.data;
     } catch (error) {
       console.error(`Error fetching user ${id} gigs:`, error);
+      throw error;
+    }
+  },
+
+  getUsersBulk: async (ids: string[]) => {
+    try {
+      const response = await api.post('/users/bulk', { ids });
+      return response.data; // { success, data: User[] }
+    } catch (error) {
+      console.error('Error fetching users in bulk:', error);
       throw error;
     }
   },

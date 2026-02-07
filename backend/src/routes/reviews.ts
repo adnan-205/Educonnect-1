@@ -1,11 +1,14 @@
 import express from 'express';
-import { getReviews, getReview, updateReview, deleteReview, replyToReview } from '../controllers/reviews';
+import { getReviews, getReview, updateReview, deleteReview, replyToReview, batchCheckReviewStatus } from '../controllers/reviews';
 import { protect } from '../middleware/auth';
 
 const router = express.Router();
 
 // List & filter reviews
 router.get('/', getReviews);
+
+// Batch check review status for multiple gigs (must be before /:id)
+router.post('/batch-status', protect, batchCheckReviewStatus);
 
 // Single review
 router.get('/:id', getReview);

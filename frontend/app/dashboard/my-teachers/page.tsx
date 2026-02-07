@@ -104,23 +104,36 @@ export default function MyTeachersPage() {
                 }
             }
 
-            // Convert map to array and fetch additional teacher details
+            // Bulk fetch all teacher details in a single request instead of N+1
+            const teacherIds = Array.from(teacherMap.keys())
+            let detailedTeacherMap = new Map<string, any>()
+            if (teacherIds.length > 0) {
+                try {
+                    const bulkRes = await usersApi.getUsersBulk(teacherIds)
+                    const bulkUsers = bulkRes?.data || []
+                    for (const u of bulkUsers) {
+                        detailedTeacherMap.set(String(u._id), u)
+                    }
+                } catch {
+                    // fallback: use basic teacher info from bookings
+                }
+            }
+
             const teacherRelations: TeacherRelation[] = []
             for (const [teacherId, data] of teacherMap) {
-                try {
-                    // Try to get more detailed teacher info
-                    const teacherResponse = await usersApi.getUser(teacherId)
-                    const detailedTeacher = teacherResponse.data
-
+                const detailedTeacher = detailedTeacherMap.get(teacherId)
+                if (detailedTeacher) {
                     teacherRelations.push({
                         teacher: {
                             ...data.teacher,
                             ...detailedTeacher,
-                            rating: detailedTeacher.rating || 4.8,
-                            totalReviews: detailedTeacher.totalReviews || Math.floor(Math.random() * 50) + 10,
-                            totalClasses: detailedTeacher.totalClasses || data.completedClasses + Math.floor(Math.random() * 100),
-                            subjects: detailedTeacher.subjects || ["Mathematics", "Science"],
-                            experience: detailedTeacher.experience || "5+ years of teaching experience"
+                            // Use actual teacher stats from API, no random fallbacks
+                            rating: detailedTeacher.teacherRatingAverage || detailedTeacher.rating || 0,
+                            totalReviews: detailedTeacher.teacherReviewsCount || detailedTeacher.totalReviews || 0,
+                            // Show actual completed classes with this student (not random total)
+                            totalClasses: data.completedClasses,
+                            subjects: detailedTeacher.subjects || detailedTeacher.profile?.subjects || [],
+                            experience: detailedTeacher.experience || detailedTeacher.profile?.experiences?.[0]?.title || ""
                         },
                         totalBookings: data.totalBookings,
                         completedClasses: data.completedClasses,
@@ -128,16 +141,16 @@ export default function MyTeachersPage() {
                         lastClassDate: data.lastClassDate,
                         nextClassDate: data.nextClassDate
                     })
-                } catch (error) {
-                    // If detailed info fails, use basic teacher info
+                } else {
+                    // Fallback: use basic teacher info from bookings without random fallbacks
                     teacherRelations.push({
                         teacher: {
                             ...data.teacher,
-                            rating: 4.8,
-                            totalReviews: Math.floor(Math.random() * 50) + 10,
-                            totalClasses: data.completedClasses + Math.floor(Math.random() * 100),
-                            subjects: ["Mathematics", "Science"],
-                            experience: "5+ years of teaching experience"
+                            rating: data.teacher?.teacherRatingAverage || data.teacher?.rating || 0,
+                            totalReviews: data.teacher?.teacherReviewsCount || data.teacher?.totalReviews || 0,
+                            totalClasses: data.completedClasses,
+                            subjects: data.teacher?.subjects || data.teacher?.profile?.subjects || [],
+                            experience: data.teacher?.experience || data.teacher?.profile?.experiences?.[0]?.title || ""
                         },
                         totalBookings: data.totalBookings,
                         completedClasses: data.completedClasses,
@@ -267,8 +280,14 @@ export default function MyTeachersPage() {
                                             </div>
                                             <div className="flex items-center gap-1 text-sm text-yellow-600">
                                                 <Star className="h-4 w-4 fill-current" />
-                                                <span>{relation.teacher.rating}</span>
-                                                <span className="text-gray-500">({relation.teacher.totalReviews})</span>
+                                                {(relation.teacher.rating ?? 0) > 0 ? (
+                                                    <>
+                                                        <span>{(relation.teacher.rating ?? 0).toFixed(1)}</span>
+                                                        <span className="text-gray-500">({relation.teacher.totalReviews ?? 0} reviews)</span>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-gray-400">No reviews yet</span>
+                                                )}
                                             </div>
                                         </div>
 

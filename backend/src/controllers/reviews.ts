@@ -19,7 +19,11 @@ async function recomputeGigRatings(gigId: string) {
 }
 
 // Incremental teacher rating update to avoid heavy aggregations each time
-async function incTeacherRating(teacherId: any, deltaSum: number, deltaCount: number) {
+export async function incTeacherRating(teacherId: string, deltaSum: number, deltaCount: number) {
+  // defensive: only teachers
+  const teacher = await User.findById(teacherId).select('_id role');
+  if (!teacher || teacher.role !== 'teacher') return;
+
   // Optimize using a single atomic pipeline update (MongoDB 4.2+)
   // Falls back to two-step if pipeline updates are not supported.
   try {
@@ -58,13 +62,46 @@ async function incTeacherRating(teacherId: any, deltaSum: number, deltaCount: nu
       { new: true, select: 'teacherRatingSum teacherReviewsCount' }
     );
     if (updated) {
-      const avg = updated.teacherReviewsCount > 0
-        ? Number((updated.teacherRatingSum / updated.teacherReviewsCount).toFixed(2))
+      const sum = updated.teacherRatingSum ?? 0;
+      const count = updated.teacherReviewsCount ?? 0;
+
+      const avg = count > 0
+        ? Number((sum / count).toFixed(2))
         : 0;
       await User.findByIdAndUpdate(teacherId, { $set: { teacherRatingAverage: avg } });
     }
   }
 }
+
+// POST /api/reviews/batch-status - Check review status for multiple gigs at once
+export const batchCheckReviewStatus = async (req: Request, res: Response) => {
+  try {
+    const studentId = (req.user as any)?._id;
+    if (!studentId) return res.status(401).json({ success: false, message: 'Not authorized' });
+
+    let { gigIds } = req.body || {};
+    if (!Array.isArray(gigIds) || gigIds.length === 0) {
+      return res.json({ success: true, data: {} });
+    }
+    // Cap at 100 to prevent abuse
+    gigIds = gigIds.slice(0, 100);
+
+    const reviews = await Review.find({
+      student: studentId,
+      gig: { $in: gigIds },
+    }).select('gig');
+
+    const reviewedGigIds = new Set(reviews.map((r: any) => String(r.gig)));
+    const result: Record<string, boolean> = {};
+    for (const gid of gigIds) {
+      result[gid] = reviewedGigIds.has(String(gid));
+    }
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error checking review status' });
+  }
+};
 
 // GET /api/reviews?gig=...&teacher=...&student=...&page=&limit=&sort=
 export const getReviews = async (req: Request, res: Response) => {
@@ -208,7 +245,7 @@ export const createReview = async (req: Request, res: Response) => {
     // and incrementally update teacher aggregates.
     await Promise.all([
       recomputeGigRatings(String(gig._id)),
-      incTeacherRating(gig.teacher, ratingNum, 1),
+      incTeacherRating(String(gig.teacher), ratingNum, 1),
     ]);
 
     try {

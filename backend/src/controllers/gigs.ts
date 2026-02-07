@@ -10,9 +10,19 @@ export const getGigs = async (req: Request, res: Response) => {
     const { category, sort, page = 1, limit = 50 } = req.query;
     const filter: any = {};
     
-    // Filter by category if provided
+    // Filter by category if provided and valid
     if (category && typeof category === 'string') {
-      filter.category = { $regex: new RegExp(`^${category}$`, 'i') };
+      const trimmedCategory = category.trim();
+      if (trimmedCategory.length > 0) {
+        // Escape regex special characters for safe matching
+        const escapedCategory = trimmedCategory.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        filter.category = { $regex: new RegExp(`^${escapedCategory}$`, 'i') };
+        console.log(`[Gigs] Filtering by category: "${trimmedCategory}"`);
+      } else {
+        console.log('[Gigs] Category parameter is empty after trimming, showing all gigs');
+      }
+    } else {
+      console.log('[Gigs] No category filter provided, showing all gigs');
     }
 
     // Check and clear expired promotions (promotedUntil < now)

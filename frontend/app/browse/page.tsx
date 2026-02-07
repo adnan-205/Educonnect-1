@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -49,22 +49,8 @@ export default function BrowsePage() {
     const [gigs, setGigs] = useState<Gig[]>([])
     const [error, setError] = useState("")
 
-    // Initialize category from URL (e.g., /browse?category=mathematics)
-    useEffect(() => {
-        const cat = searchParams.get("category")
-        if (cat && cat !== selectedCategory) {
-            setSelectedCategory(cat)
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchParams])
-
-    // Load gigs when category changes
-    useEffect(() => {
+    const loadGigs = useCallback(async () => {
         if (!selectedCategory) return
-        loadGigs()
-    }, [selectedCategory])
-
-    const loadGigs = async () => {
         try {
             setLoading(true)
             setError("")
@@ -80,12 +66,22 @@ export default function BrowsePage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [selectedCategory, sortBy])
 
-    // Reload when sort changes
+    // Initialize category from URL (e.g., /browse?category=mathematics)
     useEffect(() => {
-        if (selectedCategory) loadGigs()
-    }, [sortBy])
+        const cat = searchParams.get("category")
+        if (cat && cat !== selectedCategory) {
+            setSelectedCategory(cat)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams])
+
+    // Load gigs when category or sort changes
+    useEffect(() => {
+        if (!selectedCategory) return
+        loadGigs()
+    }, [selectedCategory, loadGigs])
 
     // NOTE: Removed Popular gigs (kept dynamic and clean per new design)
 

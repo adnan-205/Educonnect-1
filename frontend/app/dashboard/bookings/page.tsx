@@ -223,6 +223,32 @@ export default function BookingsPage() {
         })
     }
 
+    // Smart poll: auto-refresh when there are bookings awaiting payment updates (teacher sees changes without refresh)
+    useEffect(() => {
+        if (loading) return
+        // Check if any accepted bookings have pending/submitted manual payment status
+        const needsPoll = bookings.some((b: any) => {
+            if (b.status !== 'accepted') return false
+            const mp = manualPaymentMap[b._id]
+            const ps = mp?.paymentStatus
+            return ps === 'pending_manual' || ps === 'submitted'
+        })
+        if (!needsPoll) return
+
+        const interval = setInterval(async () => {
+            // Skip polling when tab is hidden
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+            try {
+                await loadBookings()
+            } catch {
+                // ignore polling errors
+            }
+        }, 20000) // Poll every 20 seconds
+
+        return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bookings.length, Object.keys(manualPaymentMap).length, loading])
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case "accepted":

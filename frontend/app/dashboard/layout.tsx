@@ -15,9 +15,7 @@ import {
     Home,
     BookOpen,
     Users,
-    MessageCircle,
     DollarSign,
-    Settings,
     Video,
     User,
     Star,
@@ -135,22 +133,17 @@ export default function DashboardLayout({
         { id: "students", label: "My Students", icon: Users, href: "/dashboard/students" },
         { id: "gigs", label: "My Gigs", icon: Star, href: "/dashboard/gigs" },
         { id: "earnings", label: "Earnings", icon: DollarSign, href: "/dashboard/earnings" },
-        { id: "payment-settings", label: "Payment Methods", icon: CreditCard, href: "/dashboard/payment-settings" },
-        { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard/messages" },
-        { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" }
+        { id: "payment-settings", label: "Payment Methods", icon: CreditCard, href: "/dashboard/payment-settings" }
     ] : userType === "admin" ? [
         { id: "home", label: "Admin Dashboard", icon: Home, href: "/dashboard" },
         { id: "users", label: "User Management", icon: Users, href: "/dashboard/users" },
         { id: "transactions", label: "Transactions", icon: DollarSign, href: "/dashboard/transactions" },
-        { id: "classes", label: "Class Analytics", icon: Video, href: "/dashboard/classes" },
-        { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" }
+        { id: "classes", label: "Class Analytics", icon: Video, href: "/dashboard/classes" }
     ] : [
         { id: "home", label: "Home", icon: Home, href: "/dashboard" },
         { id: "book-classes", label: "Book Classes", icon: BookOpen, href: "/dashboard/book-classes" },
         { id: "join-class", label: "Join Class", icon: Video, href: "/dashboard/join-class" },
-        { id: "my-teachers", label: "My Teachers", icon: Users, href: "/dashboard/my-teachers" },
-        { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard/messages" },
-        { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" }
+        { id: "my-teachers", label: "My Teachers", icon: Users, href: "/dashboard/my-teachers" }
     ]
 
     // Render minimal layout for embedded video-call route (avoid nav and role checks UI)
@@ -220,7 +213,7 @@ export default function DashboardLayout({
                 <div className="p-6 border-b border-border">
                     <div className="text-center">
                         <Link
-                            href="/dashboard/settings"
+                            href="/dashboard"
                             className="group transition-transform hover:scale-105"
                         >
                             <Avatar className="h-16 w-16 mx-auto mb-3 group-hover:ring-2 group-hover:ring-primary/50 transition-all">

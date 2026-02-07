@@ -124,6 +124,27 @@ export default function BookingsPage() {
         })
     }
 
+    // Smart poll: auto-refresh when there are accepted unpaid bookings (teacher sees payment changes without refresh)
+    useEffect(() => {
+        if (loading) return
+        // Check if any accepted bookings are still unpaid
+        const needsPoll = bookings.some((b: any) => b.status === 'accepted' && !paidMap[b._id])
+        if (!needsPoll) return
+
+        const interval = setInterval(async () => {
+            // Skip polling when tab is hidden
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+            try {
+                await loadBookings()
+            } catch {
+                // ignore polling errors
+            }
+        }, 20000) // Poll every 20 seconds
+
+        return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bookings.length, Object.keys(paidMap).length, loading])
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case "accepted":

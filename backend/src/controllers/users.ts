@@ -19,6 +19,25 @@ export const getUser = async (req: Request, res: Response) => {
   }
 };
 
+// POST /api/users/bulk - fetch multiple users by IDs in one request
+export const getUsersBulk = async (req: Request, res: Response) => {
+  try {
+    let { ids } = req.body || {};
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+    // Cap at 50 to prevent abuse
+    ids = ids.slice(0, 50);
+
+    const users = await User.find({ _id: { $in: ids } })
+      .select('name email role profile createdAt avatar coverImage phone location headline teacherRatingAverage teacherReviewsCount');
+
+    res.json({ success: true, data: users });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching users' });
+  }
+};
+
 // GET /api/users/:id/gigs - public gigs for a teacher
 export const getUserGigs = async (req: Request, res: Response) => {
   try {

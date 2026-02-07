@@ -103,6 +103,8 @@ export default function PaymentBoardingPage() {
     if (paymentData?.paymentStatus === 'submitted') {
       setPolling(true)
       const interval = setInterval(async () => {
+        // Skip polling when tab is hidden
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
         try {
           const res = await manualPaymentApi.getPaymentStatus(bookingId)
           if (res.data?.paymentStatus !== 'submitted') {
@@ -127,9 +129,18 @@ export default function PaymentBoardingPage() {
         } catch {
           // Ignore polling errors
         }
-      }, 5000) // Poll every 5 seconds
+      }, 10000) // Poll every 10 seconds
 
-      return () => clearInterval(interval)
+      // Stop polling after 30 minutes to prevent zombie polls
+      const maxPollTimer = setTimeout(() => {
+        clearInterval(interval)
+        setPolling(false)
+      }, 30 * 60 * 1000)
+
+      return () => {
+        clearInterval(interval)
+        clearTimeout(maxPollTimer)
+      }
     }
   }, [paymentData?.paymentStatus, bookingId, toast, fetchPaymentInfo])
 

@@ -103,39 +103,41 @@ export default function DashboardPage() {
 
                 if (role === "student") {
                     const completed = all.filter((b: any) => b.status === "completed" && b.gig?._id)
-                const uniqueGigIds = Array.from(new Set(completed.map((b: any) => String(b.gig._id))))
-                const results = await Promise.all(uniqueGigIds.map(async (gid) => {
-                    try {
-                        const mine = await reviewsApi.getMyReviewForGig(gid)
-                        return { gigId: gid, hasReview: !!mine?.data }
-                    } catch {
-                        return { gigId: gid, hasReview: false }
-                    }
-                }))
-                const noReviewGigs = new Set(results.filter(r => !r.hasReview).map(r => r.gigId))
-                const pending = completed
-                  .filter((b: any) => noReviewGigs.has(String(b.gig._id)))
-                  .map((b: any) => ({
-                    bookingId: b._id,
-                    gigId: b.gig._id,
-                    title: b.gig.title,
-                    teacher: b.gig.teacher?.name,
-                  }))
-                setPendingReviews(pending)
-
-                if (typeof window !== 'undefined' && pending.length > 0) {
-                    const key = 'review_notifications'
-                    let cache: Record<string, boolean> = {}
-                    try { cache = JSON.parse(localStorage.getItem(key) || '{}') } catch {}
-                    const updated: Record<string, boolean> = { ...cache }
-                    for (const p of pending) {
-                        if (!updated[p.gigId]) {
-                            toast({ title: 'Please review your class', description: `Share feedback for "${p.title}".` })
-                            updated[p.gigId] = true
+                    const uniqueGigIds = Array.from(new Set(completed.map((b: any) => String(b.gig._id))))
+                    // Batch check review status in a single request instead of N+1
+                    let reviewStatusMap: Record<string, boolean> = {}
+                    if (uniqueGigIds.length > 0) {
+                        try {
+                            const batchRes = await reviewsApi.batchCheckStatus(uniqueGigIds)
+                            reviewStatusMap = batchRes?.data || {}
+                        } catch {
+                            // fallback: assume no reviews
                         }
                     }
-                    localStorage.setItem(key, JSON.stringify(updated))
-                }
+                    const noReviewGigs = new Set(uniqueGigIds.filter(gid => !reviewStatusMap[gid]))
+                    const pending = completed
+                      .filter((b: any) => noReviewGigs.has(String(b.gig._id)))
+                      .map((b: any) => ({
+                        bookingId: b._id,
+                        gigId: b.gig._id,
+                        title: b.gig.title,
+                        teacher: b.gig.teacher?.name,
+                      }))
+                    setPendingReviews(pending)
+
+                    if (typeof window !== 'undefined' && pending.length > 0) {
+                        const key = 'review_notifications'
+                        let cache: Record<string, boolean> = {}
+                        try { cache = JSON.parse(localStorage.getItem(key) || '{}') } catch {}
+                        const updated: Record<string, boolean> = { ...cache }
+                        for (const p of pending) {
+                            if (!updated[p.gigId]) {
+                                toast({ title: 'Please review your class', description: `Share feedback for "${p.title}".` })
+                                updated[p.gigId] = true
+                            }
+                        }
+                        localStorage.setItem(key, JSON.stringify(updated))
+                    }
                 }
             } catch (e) {
                 // silent fail keeps mock UI
@@ -148,20 +150,24 @@ export default function DashboardPage() {
     useEffect(() => {
         if (role !== 'student' || !clerkLoaded || !isSignedIn) return
         const id = setInterval(async () => {
+            // Skip polling when tab is hidden
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
             try {
                 const res = await bookingsApi.getMyBookings()
                 const all = (res?.data || []) as any[]
                 const completed = all.filter((b: any) => b.status === 'completed' && b.gig?._id)
                 const uniqueGigIds = Array.from(new Set(completed.map((b: any) => String(b.gig._id))))
-                const results = await Promise.all(uniqueGigIds.map(async (gid) => {
+                // Batch check review status in a single request instead of N+1
+                let reviewStatusMap: Record<string, boolean> = {}
+                if (uniqueGigIds.length > 0) {
                     try {
-                        const mine = await reviewsApi.getMyReviewForGig(gid)
-                        return { gigId: gid, hasReview: !!mine?.data }
+                        const batchRes = await reviewsApi.batchCheckStatus(uniqueGigIds)
+                        reviewStatusMap = batchRes?.data || {}
                     } catch {
-                        return { gigId: gid, hasReview: false }
+                        // fallback: assume no reviews
                     }
-                }))
-                const noReviewGigs = new Set(results.filter(r => !r.hasReview).map(r => r.gigId))
+                }
+                const noReviewGigs = new Set(uniqueGigIds.filter(gid => !reviewStatusMap[gid]))
                 const pending = completed
                     .filter((b: any) => noReviewGigs.has(String(b.gig._id)))
                     .map((b: any) => ({ bookingId: b._id, gigId: b.gig._id, title: b.gig.title, teacher: b.gig.teacher?.name }))
