@@ -614,7 +614,7 @@ export const bookingsApi = {
       throw error;
     }
   },
-  
+
   getByRoom: async (roomId: string) => {
     try {
       const response = await api.get(`/bookings/room/${encodeURIComponent(roomId)}`);
@@ -624,13 +624,117 @@ export const bookingsApi = {
       throw error;
     }
   },
-  
+
   markAttendance: async (bookingId: string) => {
     try {
       const response = await api.post(`/bookings/${encodeURIComponent(bookingId)}/attendance`);
       return response.data;
     } catch (error) {
       console.error(`Error marking attendance for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+
+  // Manual payment endpoints
+  getJoinDetails: async (bookingId: string) => {
+    try {
+      const response = await api.get(`/bookings/${encodeURIComponent(bookingId)}/join`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error getting join details for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+
+  getPaymentStatus: async (bookingId: string) => {
+    try {
+      const response = await api.get(`/bookings/${encodeURIComponent(bookingId)}/payment-status`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error getting payment status for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+
+  submitPaymentProof: async (bookingId: string, payload: {
+    method: 'bkash' | 'nagad' | 'bank';
+    trxid: string;
+    senderNumber?: string;
+    amountPaid?: number;
+    screenshotUrl?: string;
+  }) => {
+    try {
+      const response = await api.post(`/bookings/${encodeURIComponent(bookingId)}/payment/submit`, payload);
+      return response.data;
+    } catch (error) {
+      console.error(`Error submitting payment proof for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+
+  verifyPayment: async (bookingId: string) => {
+    try {
+      const response = await api.post(`/bookings/${encodeURIComponent(bookingId)}/payment/verify`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error verifying payment for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+
+  rejectPayment: async (bookingId: string, reason: string) => {
+    try {
+      const response = await api.post(`/bookings/${encodeURIComponent(bookingId)}/payment/reject`, { reason });
+      return response.data;
+    } catch (error) {
+      console.error(`Error rejecting payment for booking ${bookingId}:`, error);
+      throw error;
+    }
+  },
+};
+
+export const teacherPaymentApi = {
+  // Update teacher's own payment info
+  upsertPaymentInfo: async (payload: {
+    bkashNumber?: string;
+    nagadNumber?: string;
+    bankDetails?: {
+      bankName?: string;
+      accountNumber?: string;
+      accountName?: string;
+      branchName?: string;
+      routingNumber?: string;
+    };
+    accountName?: string;
+    instructions?: string;
+  }) => {
+    try {
+      const response = await api.put('/teachers/me/payment-info', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating teacher payment info:', error);
+      throw error;
+    }
+  },
+
+  // Get current teacher's payment info
+  getMyPaymentInfo: async () => {
+    try {
+      const response = await api.get('/teachers/me/payment-info');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching my payment info:', error);
+      throw error;
+    }
+  },
+
+  // Get any teacher's payment info (for students booking)
+  getTeacherPaymentInfo: async (teacherId: string) => {
+    try {
+      const response = await api.get(`/teachers/${encodeURIComponent(teacherId)}/payment-info`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching teacher ${teacherId} payment info:`, error);
       throw error;
     }
   },

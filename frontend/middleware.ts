@@ -1,6 +1,6 @@
 import { clerkMiddleware } from '@clerk/nextjs/server'
 
-// Use default middleware and exclude the embedded video-call route via matcher below
+// Use Clerk middleware
 export default clerkMiddleware()
 
 export const config = {

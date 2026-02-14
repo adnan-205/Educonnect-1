@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { BookOpen, Menu, X, LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"

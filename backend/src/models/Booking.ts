@@ -1,5 +1,86 @@
 import mongoose from 'mongoose';
 import { IBooking } from '../types/models';
+import crypto from 'crypto';
+
+// Generate a short unique payment reference code
+const generatePaymentRefCode = (): string => {
+  const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
+  return `TC-BOOK-${rand}`;
+};
+
+// Manual payment sub-schema
+const manualPaymentSchema = new mongoose.Schema(
+  {
+    status: {
+      type: String,
+      enum: ['pending_manual', 'submitted', 'verified', 'rejected', 'expired'],
+      default: 'pending_manual',
+    },
+    method: {
+      type: String,
+      enum: ['bkash', 'nagad', 'bank'],
+    },
+    amountExpected: {
+      type: Number,
+      min: 0,
+    },
+    amountPaid: {
+      type: Number,
+      min: 0,
+    },
+    trxid: {
+      type: String,
+      trim: true,
+    },
+    senderNumber: {
+      type: String,
+      trim: true,
+    },
+    screenshotUrl: {
+      type: String,
+    },
+    submittedAt: Date,
+    verifiedAt: Date,
+    rejectedAt: Date,
+    rejectReason: {
+      type: String,
+      maxlength: 500,
+    },
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    submissionCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    acceptedAt: Date, // when booking was accepted (for timeout calculation)
+  },
+  { _id: false }
+);
+
+// Payment audit log entry sub-schema
+const paymentAuditLogSchema = new mongoose.Schema(
+  {
+    action: {
+      type: String,
+      required: true,
+    },
+    fromStatus: String,
+    toStatus: String,
+    performedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    note: String,
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
 
 const bookingSchema = new mongoose.Schema<IBooking>({
   student: {
@@ -17,6 +98,25 @@ const bookingSchema = new mongoose.Schema<IBooking>({
     enum: ['pending', 'accepted', 'rejected', 'completed'],
     default: 'pending',
   },
+  // Manual payment fields
+  manualPayment: manualPaymentSchema,
+  paymentRefCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    default: generatePaymentRefCode,
+  },
+  paymentMethodType: {
+    type: String,
+    enum: ['manual', 'sslcommerz', 'none'],
+    default: 'none',
+  },
+  joinUnlocked: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  paymentAuditLog: [paymentAuditLogSchema],
   scheduledDate: {
     type: Date,
     required: [true, 'Please add a scheduled date'],

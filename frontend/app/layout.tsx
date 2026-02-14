@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
       <html lang="en" suppressHydrationWarning>
-        <body className={inter.className}>
+        <body className={inter.className} suppressHydrationWarning>
           <Providers>
             <Navbar />
             <main className="min-h-screen">{children}</main>

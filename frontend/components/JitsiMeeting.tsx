@@ -82,10 +82,10 @@ export default function JitsiMeeting({
         if (!containerRef.current) throw new Error("Container not found");
 
         // Dispose any previous instance and clear container to avoid duplicates
-        try { instanceRef.current?.dispose?.(); } catch (_) {}
-        try { api?.dispose?.(); } catch (_) {}
+        try { instanceRef.current?.dispose?.(); } catch (_) { }
+        try { api?.dispose?.(); } catch (_) { }
         setApi(null);
-        try { if (containerRef.current) containerRef.current.innerHTML = ''; } catch (_) {}
+        try { if (containerRef.current) containerRef.current.innerHTML = ''; } catch (_) { }
 
         // Toolbar settings: always hide invite; students get a limited toolbar
         const baseToolbarButtons: string[] = [
@@ -144,7 +144,7 @@ export default function JitsiMeeting({
           onMeetingJoined?.();
           // Auto-apply meeting password if teacher (moderator)
           if (roleForThisBooking === 'teacher' && meetingPassword) {
-            try { apiInstance.executeCommand('password', meetingPassword); } catch (_) {}
+            try { apiInstance.executeCommand('password', meetingPassword); } catch (_) { }
           }
           // Optional auto-end after N minutes from actual join
           const autoEndDisabled = process.env.NEXT_PUBLIC_JITSI_AUTO_END_DISABLED === 'true';
@@ -163,7 +163,7 @@ export default function JitsiMeeting({
         // Student: auto-submit password when required (if teacher has set one)
         apiInstance.addEventListener('passwordRequired', () => {
           if (meetingPassword) {
-            try { apiInstance.executeCommand('password', meetingPassword); } catch (_) {}
+            try { apiInstance.executeCommand('password', meetingPassword); } catch (_) { }
           }
         });
 
@@ -198,10 +198,10 @@ export default function JitsiMeeting({
 
     return () => {
       if (endTimerRef.current) clearTimeout(endTimerRef.current);
-      try { instanceRef.current?.dispose?.(); } catch (_) {}
-      try { api?.dispose?.(); } catch (_) {}
+      try { instanceRef.current?.dispose?.(); } catch (_) { }
+      try { api?.dispose?.(); } catch (_) { }
       instanceRef.current = null;
-      try { if (containerRef.current) containerRef.current.innerHTML = ''; } catch (_) {}
+      try { if (containerRef.current) containerRef.current.innerHTML = ''; } catch (_) { }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);

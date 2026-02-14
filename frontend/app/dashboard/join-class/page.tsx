@@ -22,6 +22,8 @@ import {
 import PaymentButton from "@/components/PaymentButton"
 import { useUser } from "@clerk/nextjs"
 
+ const ENABLE_PAYMENTS = process.env.NEXT_PUBLIC_ENABLE_PAYMENTS === "true"
+
 interface Booking {
     _id: string
     gig?: {
@@ -111,19 +113,22 @@ export default function JoinClassPage() {
         try {
             const response = await bookingsApi.getMyBookings()
             setBookings(response.data)
-            // After loading bookings, prefetch payment status for accepted bookings (per booking, not per gig)
-            const accepted = (response.data || []).filter((b: Booking) => b.status === "accepted")
-            const entries = await Promise.all(
-              accepted.map(async (bk: Booking) => {
-                try {
-                  const st = await paymentsApi.getBookingStatus(bk._id)
-                  return [bk._id, !!st?.paid] as const
-                } catch {
-                  return [bk._id, false] as const
-                }
-              })
-            )
-            setPaidMap(Object.fromEntries(entries))
+            if (ENABLE_PAYMENTS) {
+                const accepted = (response.data || []).filter((b: Booking) => b.status === "accepted")
+                const entries = await Promise.all(
+                  accepted.map(async (bk: Booking) => {
+                    try {
+                      const st = await paymentsApi.getBookingStatus(bk._id)
+                      return [bk._id, !!st?.paid] as const
+                    } catch {
+                      return [bk._id, false] as const
+                    }
+                  })
+                )
+                setPaidMap(Object.fromEntries(entries))
+            } else {
+                setPaidMap({})
+            }
         } catch (error) {
             console.error("Error fetching bookings:", error)
             toast({
@@ -138,34 +143,53 @@ export default function JoinClassPage() {
 
     const getStart = (bk: Booking) => new Date(bk.scheduledAt || bk.scheduledDate).getTime()
 
-    const handleJoinClass = (booking: Booking) => {
+    const handleJoinClass = async (booking: Booking) => {
         const minutes = booking.gig?.duration || 90
-        // Require successful payment before allowing to join (student side)
-        const paid = paidMap[booking._id] === true
-        if (!paid) {
-            toast({
-                title: "Payment Required",
-                description: "Please complete the payment to join this class.",
-                variant: "destructive"
-            })
-            return
-        }
-        if (booking.meetingRoomId) {
-            router.push(`/dashboard/video-call/${booking.meetingRoomId}?minutes=${minutes}`)
-            return
-        }
-        if (booking.meetingLink) {
-            const roomId = booking.meetingLink.split('/').pop() || ''
-            if (roomId) {
-                router.push(`/dashboard/video-call/${roomId}?minutes=${minutes}`)
+        
+        // Use the new join API endpoint which handles all payment verification
+        try {
+            const res = await bookingsApi.getJoinDetails(booking._id)
+            const data = res.data
+            
+            // Successfully got join details - navigate to video call
+            if (data?.meetingRoomId) {
+                router.push(`/dashboard/video-call/${data.meetingRoomId}?minutes=${minutes}`)
                 return
             }
+            
+            toast({
+                title: "No Meeting Link",
+                description: "The teacher hasn't provided a meeting link yet.",
+                variant: "destructive"
+            })
+        } catch (err: any) {
+            const status = err?.response?.status
+            const resData = err?.response?.data
+            
+            // 403 with paymentRequired = true means manual payment needed
+            if (status === 403 && resData?.data?.paymentRequired) {
+                // Redirect to payment boarding page
+                router.push(`/dashboard/bookings/${booking._id}/payment`)
+                return
+            }
+            
+            // 402 means SSLCommerz payment required (legacy flow)
+            if (status === 402) {
+                toast({
+                    title: "Payment Required",
+                    description: "Please complete the payment to join this class.",
+                    variant: "destructive"
+                })
+                return
+            }
+            
+            // Other errors
+            toast({
+                title: "Cannot Join",
+                description: resData?.message || "Unable to join the class at this time.",
+                variant: "destructive"
+            })
         }
-        toast({
-            title: "No Meeting Link",
-            description: "The teacher hasn't provided a meeting link yet. Please contact them directly.",
-            variant: "destructive"
-        })
     }
 
     const getStatusColor = (status: string) => {
@@ -212,6 +236,7 @@ export default function JoinClassPage() {
     const isJoinEnabled = (bk: Booking) => {
         const { windowOpen, windowClose } = getTimes(bk)
         const withinWindow = nowTs >= windowOpen && nowTs <= windowClose
+        if (!ENABLE_PAYMENTS) return withinWindow
         const paid = paidMap[bk._id] === true
         return withinWindow && paid
     }
@@ -426,7 +451,9 @@ export default function JoinClassPage() {
                                               )}
 
                                               {booking.status === 'accepted' && !isPaid && booking.gig?._id && (
-                                                <PaymentButton gigId={booking.gig._id} bookingId={booking._id} amount={((booking as any).gig?.price || 0)} className="w-full" buttonClassName="w-full h-10" />
+                                                (ENABLE_PAYMENTS ? (
+                                                  <PaymentButton gigId={booking.gig._id} bookingId={booking._id} amount={((booking as any).gig?.price || 0)} className="w-full" buttonClassName="w-full h-10" />
+                                                ) : null)
                                               )}
 
                                             {booking.status === 'pending' && (

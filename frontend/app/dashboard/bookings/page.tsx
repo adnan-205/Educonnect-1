@@ -8,8 +8,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { api, bookingsApi, paymentsApi } from "@/services/api"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, Clock, User, CheckCircle, XCircle, Video } from "lucide-react"
+import { Calendar, Clock, User, CheckCircle, XCircle, Video, CreditCard } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
+import PaymentVerificationCard from "@/components/PaymentVerificationCard"
 
 export default function BookingsPage() {
     const router = useRouter()
@@ -104,24 +105,56 @@ export default function BookingsPage() {
     }
 
     // Route to embedded meeting page for accepted bookings
-    const handleJoinAccepted = (booking: any) => {
+    const handleJoinAccepted = async (booking: any) => {
         const minutes = booking?.gig?.duration || 90
-        if (booking?.meetingRoomId) {
-            router.push(`/dashboard/video-call/${booking.meetingRoomId}?minutes=${minutes}`)
-            return
-        }
-        if (booking?.meetingLink) {
-            const roomId = (booking.meetingLink as string).split('/').pop() || ''
-            if (roomId) {
-                router.push(`/dashboard/video-call/${roomId}?minutes=${minutes}`)
+
+        try {
+            const res = await bookingsApi.getJoinDetails(booking._id)
+            const data = res.data
+
+            if (data?.meetingRoomId) {
+                router.push(`/dashboard/video-call/${data.meetingRoomId}?minutes=${minutes}`)
                 return
             }
+            if (data?.meetingLink) {
+                const roomId = (data.meetingLink as string).split('/').pop() || ''
+                if (roomId) {
+                    router.push(`/dashboard/video-call/${roomId}?minutes=${minutes}`)
+                    return
+                }
+            }
+
+            toast({
+                title: "No Meeting Link",
+                description: "Meeting link not available yet.",
+                variant: "destructive"
+            })
+        } catch (err: any) {
+            const status = err?.response?.status
+            const resData = err?.response?.data
+
+            // Manual payment required -> redirect to boarding page
+            if (status === 403 && resData?.data?.paymentRequired) {
+                router.push(`/dashboard/bookings/${booking._id}/payment`)
+                return
+            }
+
+            // Legacy SSLCommerz required
+            if (status === 402) {
+                toast({
+                    title: "Payment Required",
+                    description: "Please complete the payment to join this class.",
+                    variant: "destructive"
+                })
+                return
+            }
+
+            toast({
+                title: "Cannot Join",
+                description: resData?.message || "Unable to join the class at this time.",
+                variant: "destructive"
+            })
         }
-        toast({
-            title: "No Meeting Link",
-            description: "Meeting link not available yet.",
-            variant: "destructive"
-        })
     }
 
     const getStatusColor = (status: string) => {
@@ -165,6 +198,11 @@ export default function BookingsPage() {
     const requestBookings = bookings.filter((b) => b.status === "pending")
     const acceptedBookings = bookings.filter((b) => b.status === "accepted")
     const rejectedBookings = bookings.filter((b) => b.status === "rejected")
+    
+    // Filter bookings pending payment verification (manual payment with submitted status)
+    const pendingVerificationBookings = acceptedBookings.filter(
+        (b) => b.paymentMethodType === 'manual' && b.manualPayment?.status === 'submitted'
+    )
 
     // Reusable booking item card to reduce duplication
     const BookingItem = ({ booking, right }: { booking: any; right?: any }) => (
@@ -231,6 +269,34 @@ export default function BookingsPage() {
 
             {error && (
                 <div className="text-center text-red-600 p-4 bg-red-50 rounded-lg">{error}</div>
+            )}
+
+            {/* 0) Pending Payment Verification - Show first for visibility */}
+            {pendingVerificationBookings.length > 0 && (
+                <section className="space-y-3">
+                    <Card className="border-0 shadow-none">
+                        <CardHeader className="px-0 pt-0">
+                            <CardTitle className="text-xl flex items-center gap-2">
+                                <CreditCard className="h-5 w-5 text-blue-600" />
+                                Pending Payment Verification
+                                <Badge className="bg-blue-100 text-blue-800">{pendingVerificationBookings.length}</Badge>
+                            </CardTitle>
+                        </CardHeader>
+                    </Card>
+                    {pendingVerificationBookings.map((booking) => (
+                        <div key={booking._id} className="space-y-2">
+                            <BookingItem booking={booking} />
+                            <PaymentVerificationCard
+                                bookingId={booking._id}
+                                manualPayment={booking.manualPayment}
+                                paymentRefCode={booking.paymentRefCode}
+                                studentName={booking.student?.name}
+                                gigTitle={booking.gig?.title}
+                                onStatusChange={loadBookings}
+                            />
+                        </div>
+                    ))}
+                </section>
             )}
 
             {/* 1) Requests (Pending) with serial numbers */}

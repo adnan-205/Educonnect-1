@@ -101,6 +101,37 @@ export interface IGig {
   updatedAt: Date;
 }
 
+// Manual payment sub-types
+export type ManualPaymentStatus = 'pending_manual' | 'submitted' | 'verified' | 'rejected' | 'expired';
+export type ManualPaymentMethod = 'bkash' | 'nagad' | 'bank';
+export type PaymentMethodType = 'manual' | 'sslcommerz' | 'none';
+
+export interface IManualPayment {
+  status: ManualPaymentStatus;
+  method?: ManualPaymentMethod;
+  amountExpected?: number;
+  amountPaid?: number;
+  trxid?: string;
+  senderNumber?: string;
+  screenshotUrl?: string;
+  submittedAt?: Date;
+  verifiedAt?: Date;
+  rejectedAt?: Date;
+  rejectReason?: string;
+  verifiedBy?: string;
+  submissionCount: number;
+  acceptedAt?: Date;
+}
+
+export interface IPaymentAuditLogEntry {
+  action: string;
+  fromStatus?: string;
+  toStatus?: string;
+  performedBy?: string;
+  note?: string;
+  timestamp: Date;
+}
+
 export interface IBooking {
   _id: string;
   student: string | IUser;
@@ -123,6 +154,12 @@ export interface IBooking {
   studentRating?: number;
   reviewComment?: string;
   reviewVisibility?: boolean;
+  // Manual payment fields
+  manualPayment?: IManualPayment;
+  paymentRefCode?: string;
+  paymentMethodType?: PaymentMethodType;
+  joinUnlocked?: boolean;
+  paymentAuditLog?: IPaymentAuditLogEntry[];
   createdAt: Date;
   updatedAt: Date;
 }

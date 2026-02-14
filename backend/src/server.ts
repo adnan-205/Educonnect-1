@@ -17,6 +17,7 @@ import paymentRoutes from './routes/payments';
 import reviewRoutes from './routes/reviews';
 import walletRoutes from './routes/wallet';
 import adminRoutes from './routes/admin';
+import manualPaymentRoutes from './routes/manualPayment';
 
 // Load env vars
 dotenv.config();
@@ -331,6 +332,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api', manualPaymentRoutes);
 
 // Add error logging
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
