@@ -22,7 +22,6 @@ import {
     CreditCard,
     Flag
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -307,7 +306,7 @@ export default function DashboardLayout({
                 <div className="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full pb-20 lg:pb-8">
                     {children}
                 </div>
-            </div>
+            </main>
 
             {/* Floating Report Button for Mobile */}
             <Button

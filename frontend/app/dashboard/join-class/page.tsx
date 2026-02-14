@@ -173,40 +173,13 @@ export default function JoinClassPage() {
                 router.push(`/dashboard/video-call/${roomId}?minutes=${minutes}`)
                 return
             }
-            
-            toast({
-                title: "No Meeting Link",
-                description: "The teacher hasn't provided a meeting link yet.",
-                variant: "destructive"
-            })
-        } catch (err: any) {
-            const status = err?.response?.status
-            const resData = err?.response?.data
-            
-            // 403 with paymentRequired = true means manual payment needed
-            if (status === 403 && resData?.data?.paymentRequired) {
-                // Redirect to payment boarding page
-                router.push(`/dashboard/bookings/${booking._id}/payment`)
-                return
-            }
-            
-            // 402 means SSLCommerz payment required (legacy flow)
-            if (status === 402) {
-                toast({
-                    title: "Payment Required",
-                    description: "Please complete the payment to join this class.",
-                    variant: "destructive"
-                })
-                return
-            }
-            
-            // Other errors
-            toast({
-                title: "Cannot Join",
-                description: resData?.message || "Unable to join the class at this time.",
-                variant: "destructive"
-            })
         }
+
+        toast({
+            title: "No Meeting Link",
+            description: "The teacher hasn't provided a meeting link yet.",
+            variant: "destructive"
+        })
     }
 
     const getStatusColor = (status: string) => {
