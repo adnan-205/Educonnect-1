@@ -185,7 +185,7 @@ export default function HomePage() {
               </div>
               <p className="text-muted-foreground mb-4">Protected payments with clear hourly rates—no hidden fees.</p>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <DollarSign className="h-4 w-4" /> From $15/hr across 50+ subjects
+                <span className="h-4 w-4 leading-none">৳</span> From ৳15/hr across 50+ subjects
               </div>
             </div>
           </div>

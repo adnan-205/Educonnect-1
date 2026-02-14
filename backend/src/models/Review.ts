@@ -9,6 +9,8 @@ const reviewSchema = new mongoose.Schema<IReview>({
   rating: { type: Number, required: true, min: 1, max: 5 },
   title: { type: String, trim: true, maxlength: 120 },
   comment: { type: String, trim: true, maxlength: 2000 },
+  teacherReply: { type: String, trim: true, maxlength: 2000 },
+  teacherReplyAt: { type: Date },
 }, {
   timestamps: true,
 });

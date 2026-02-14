@@ -9,6 +9,7 @@ import {
 } from '../controllers/bookings';
 import { protect, authorize } from '../middleware/auth';
 import { validateBookingCreation } from '../middleware/validation';
+import { cacheMiddleware } from '../middleware/cache';
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ router.use(protect);
 
 router
   .route('/')
-  .get(getBookings)
+  .get(cacheMiddleware('bookings', 600), getBookings)
   .post(authorize('student'), validateBookingCreation, createBooking);
 
 // Access a meeting by room id (student or teacher only)

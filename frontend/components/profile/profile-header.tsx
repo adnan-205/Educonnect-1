@@ -237,7 +237,7 @@ export function ProfileHeader({ profile, onUpdate, isEditable = true }: ProfileH
                         <>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <Label htmlFor="hourlyRate">Hourly Rate ($)</Label>
+                              <Label htmlFor="hourlyRate">Hourly Rate (৳)</Label>
                               <Input
                                 id="hourlyRate"
                                 type="number"
@@ -306,7 +306,7 @@ export function ProfileHeader({ profile, onUpdate, isEditable = true }: ProfileH
                     Rating
                   </div>
                   <div className="font-semibold">
-                    {profile.rating && profile.rating > 0 ? `${Number(profile.rating).toFixed(1)}` : '0'}/5 ({profile.reviews || 0})
+                    {profile.rating ? `${Number(profile.rating).toFixed(1)}` : '0'}/5 ({profile.reviews || 0})
                   </div>
                 </div>
                 <div className="text-center">
@@ -328,7 +328,7 @@ export function ProfileHeader({ profile, onUpdate, isEditable = true }: ProfileH
                     <Award className="h-4 w-4" />
                     Rate
                   </div>
-                  <div className="font-semibold">${profile.hourlyRate || 0}/hr</div>
+                  <div className="font-semibold">৳{profile.hourlyRate || 0}/hr</div>
                 </div>
               </div>
             )}

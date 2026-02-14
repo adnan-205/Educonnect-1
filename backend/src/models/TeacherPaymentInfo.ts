@@ -1,17 +1,14 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface ITeacherPaymentInfo extends Document {
   teacherId: mongoose.Types.ObjectId;
   bkashNumber?: string;
   nagadNumber?: string;
-  bankDetails?: {
-    bankName?: string;
-    accountNumber?: string;
-    accountName?: string;
-    branchName?: string;
-    routingNumber?: string;
-  };
-  accountName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  bankBranch?: string;
+  routingNumber?: string;
   instructions?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -29,28 +26,49 @@ const teacherPaymentInfoSchema = new Schema<ITeacherPaymentInfo>(
     bkashNumber: {
       type: String,
       trim: true,
+      maxlength: 20,
     },
     nagadNumber: {
       type: String,
       trim: true,
+      maxlength: 20,
     },
-    bankDetails: {
-      bankName: String,
-      accountNumber: String,
-      accountName: String,
-      branchName: String,
-      routingNumber: String,
-    },
-    accountName: {
+    bankAccountName: {
       type: String,
       trim: true,
+      maxlength: 100,
+    },
+    bankAccountNumber: {
+      type: String,
+      trim: true,
+      maxlength: 50,
+    },
+    bankName: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+    bankBranch: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
+    routingNumber: {
+      type: String,
+      trim: true,
+      maxlength: 20,
     },
     instructions: {
       type: String,
-      maxlength: 1000,
+      trim: true,
+      maxlength: 500,
     },
   },
   { timestamps: true }
 );
 
-export default mongoose.model<ITeacherPaymentInfo>('TeacherPaymentInfo', teacherPaymentInfoSchema);
+const TeacherPaymentInfo: Model<ITeacherPaymentInfo> =
+  mongoose.models.TeacherPaymentInfo ||
+  mongoose.model<ITeacherPaymentInfo>('TeacherPaymentInfo', teacherPaymentInfoSchema);
+
+export default TeacherPaymentInfo;

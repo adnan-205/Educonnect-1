@@ -19,6 +19,25 @@ export const getUser = async (req: Request, res: Response) => {
   }
 };
 
+// POST /api/users/bulk - fetch multiple users by IDs in one request
+export const getUsersBulk = async (req: Request, res: Response) => {
+  try {
+    let { ids } = req.body || {};
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+    // Cap at 50 to prevent abuse
+    ids = ids.slice(0, 50);
+
+    const users = await User.find({ _id: { $in: ids } })
+      .select('name email role profile createdAt avatar coverImage phone location headline teacherRatingAverage teacherReviewsCount');
+
+    res.json({ success: true, data: users });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching users' });
+  }
+};
+
 // GET /api/users/:id/gigs - public gigs for a teacher
 export const getUserGigs = async (req: Request, res: Response) => {
   try {
@@ -58,9 +77,18 @@ export const updateMe = async (req: Request, res: Response) => {
     // Onboarding fields
     if (typeof req.body.marketingSource === 'string') patch['marketingSource'] = req.body.marketingSource;
     if (typeof req.body.isOnboarded === 'boolean') patch['isOnboarded'] = req.body.isOnboarded;
-    // Optional role update (limit to known roles)
+    // Role update - only allow if user doesn't already have a role set (first-time onboarding)
+    // After initial role selection, role changes require admin/database intervention
     if (typeof req.body.role === 'string' && ['student','teacher','admin'].includes(req.body.role)) {
-      patch['role'] = req.body.role;
+      // Check if user already has a role set
+      const existingUser = await User.findById(userId).select('role isOnboarded');
+      const hasExistingRole = !!existingUser?.role;
+      if (!hasExistingRole) {
+        // First time setting role - allow it
+        patch['role'] = req.body.role;
+      }
+      // If user already has a role, silently ignore the role change request
+      // User must contact support to change role
     }
 
     // Nested profile fields via dot-notation (merges without wiping unspecified keys)

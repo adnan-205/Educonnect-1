@@ -78,33 +78,118 @@ export default function DashboardPage() {
                     setTeacherBookings(upcoming)
                 }
 
+                // Student notifications for status changes (only show to students, not teachers)
+                if (typeof window !== "undefined" && role === "student") {
+                    const key = "booking_status_notifications"
+                    let cache: Record<string, string> = {}
+                    try {
+                        cache = JSON.parse(localStorage.getItem(key) || "{}")
+                    } catch {}
+                    const updated = { ...cache }
+                    for (const b of all) {
+                        if ((b.status === "accepted" || b.status === "rejected" || b.status === "completed") && updated[b._id] !== b.status) {
+                            toast({
+                                title: b.status === "accepted" ? "Booking accepted" : b.status === "rejected" ? "Booking rejected" : "Class completed",
+                                description: b.status === "accepted"
+                                    ? `Your booking for "${b.gig?.title}" was accepted by ${b.gig?.teacher?.name}.`
+                                    : b.status === "rejected"
+                                    ? `Your booking for "${b.gig?.title}" was rejected.`
+                                    : `Please leave a review for "${b.gig?.title}".`,
+                            })
+                            updated[b._id] = b.status
+                        }
+                    }
+                    localStorage.setItem(key, JSON.stringify(updated))
+                }
+
                 if (role === "student") {
                     const completed = all.filter((b: any) => b.status === "completed" && b.gig?._id)
                     const uniqueGigIds = Array.from(new Set(completed.map((b: any) => String(b.gig._id))))
-                    const results = await Promise.all(uniqueGigIds.map(async (gid) => {
+                    // Batch check review status in a single request instead of N+1
+                    let reviewStatusMap: Record<string, boolean> = {}
+                    if (uniqueGigIds.length > 0) {
                         try {
-                            const mine = await reviewsApi.getMyReviewForGig(gid)
-                            return { gigId: gid, hasReview: !!mine?.data }
+                            const batchRes = await reviewsApi.batchCheckStatus(uniqueGigIds)
+                            reviewStatusMap = batchRes?.data || {}
                         } catch {
-                            return { gigId: gid, hasReview: false }
+                            // fallback: assume no reviews
                         }
-                    }))
-                    const noReviewGigs = new Set(results.filter(r => !r.hasReview).map(r => r.gigId))
+                    }
+                    const noReviewGigs = new Set(uniqueGigIds.filter(gid => !reviewStatusMap[gid]))
                     const pending = completed
-                        .filter((b: any) => noReviewGigs.has(String(b.gig._id)))
-                        .map((b: any) => ({
-                            bookingId: b._id,
-                            gigId: b.gig._id,
-                            title: b.gig.title,
-                            teacher: b.gig.teacher?.name,
-                        }))
+                      .filter((b: any) => noReviewGigs.has(String(b.gig._id)))
+                      .map((b: any) => ({
+                        bookingId: b._id,
+                        gigId: b.gig._id,
+                        title: b.gig.title,
+                        teacher: b.gig.teacher?.name,
+                      }))
                     setPendingReviews(pending)
+
+                    if (typeof window !== 'undefined' && pending.length > 0) {
+                        const key = 'review_notifications'
+                        let cache: Record<string, boolean> = {}
+                        try { cache = JSON.parse(localStorage.getItem(key) || '{}') } catch {}
+                        const updated: Record<string, boolean> = { ...cache }
+                        for (const p of pending) {
+                            if (!updated[p.gigId]) {
+                                toast({ title: 'Please review your class', description: `Share feedback for "${p.title}".` })
+                                updated[p.gigId] = true
+                            }
+                        }
+                        localStorage.setItem(key, JSON.stringify(updated))
+                    }
                 }
             } catch (e) {
                 // silent fail
             }
         }
         load()
+    }, [role, clerkLoaded, isSignedIn])
+
+    // Periodic polling to detect newly completed classes and pending reviews (every 60s)
+    useEffect(() => {
+        if (role !== 'student' || !clerkLoaded || !isSignedIn) return
+        const id = setInterval(async () => {
+            // Skip polling when tab is hidden
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+            try {
+                const res = await bookingsApi.getMyBookings()
+                const all = (res?.data || []) as any[]
+                const completed = all.filter((b: any) => b.status === 'completed' && b.gig?._id)
+                const uniqueGigIds = Array.from(new Set(completed.map((b: any) => String(b.gig._id))))
+                // Batch check review status in a single request instead of N+1
+                let reviewStatusMap: Record<string, boolean> = {}
+                if (uniqueGigIds.length > 0) {
+                    try {
+                        const batchRes = await reviewsApi.batchCheckStatus(uniqueGigIds)
+                        reviewStatusMap = batchRes?.data || {}
+                    } catch {
+                        // fallback: assume no reviews
+                    }
+                }
+                const noReviewGigs = new Set(uniqueGigIds.filter(gid => !reviewStatusMap[gid]))
+                const pending = completed
+                    .filter((b: any) => noReviewGigs.has(String(b.gig._id)))
+                    .map((b: any) => ({ bookingId: b._id, gigId: b.gig._id, title: b.gig.title, teacher: b.gig.teacher?.name }))
+                setPendingReviews(pending)
+
+                if (typeof window !== 'undefined' && pending.length > 0) {
+                    const key = 'review_notifications'
+                    let cache: Record<string, boolean> = {}
+                    try { cache = JSON.parse(localStorage.getItem(key) || '{}') } catch {}
+                    const updated: Record<string, boolean> = { ...cache }
+                    for (const p of pending) {
+                        if (!updated[p.gigId]) {
+                            toast({ title: 'Please review your class', description: `Share feedback for "${p.title}".` })
+                            updated[p.gigId] = true
+                        }
+                    }
+                    localStorage.setItem(key, JSON.stringify(updated))
+                }
+            } catch {}
+        }, 60000)
+        return () => clearInterval(id)
     }, [role, clerkLoaded, isSignedIn])
 
     // Calculate stats

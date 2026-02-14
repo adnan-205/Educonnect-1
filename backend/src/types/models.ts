@@ -97,18 +97,34 @@ export interface IGig {
   };
   averageRating?: number;
   reviewsCount?: number;
+  // Ranking & Promotion fields (like Upwork/Fiverr)
+  isFeatured?: boolean;
+  isPromoted?: boolean;
+  promotedUntil?: Date | null;
+  completedBookingsCount?: number;
+  viewsCount?: number;
+  rankingScore?: number;
   createdAt: Date;
   updatedAt: Date;
 }
 
-// Manual payment sub-types
-export type ManualPaymentStatus = 'pending_manual' | 'submitted' | 'verified' | 'rejected' | 'expired';
-export type ManualPaymentMethod = 'bkash' | 'nagad' | 'bank';
-export type PaymentMethodType = 'manual' | 'sslcommerz' | 'none';
+// Manual payment receiver snapshot (teacher info at submission time)
+export interface IReceiverSnapshot {
+  bkashNumber?: string;
+  nagadNumber?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  bankBranch?: string;
+  routingNumber?: string;
+  snapshotAt?: Date;
+}
 
+// Manual payment subdocument
 export interface IManualPayment {
-  status: ManualPaymentStatus;
-  method?: ManualPaymentMethod;
+  methodType?: 'manual' | 'sslcommerz';
+  status?: 'pending_manual' | 'submitted' | 'verified' | 'rejected' | 'expired';
+  method?: 'bkash' | 'nagad' | 'bank';
   amountExpected?: number;
   amountPaid?: number;
   trxid?: string;
@@ -118,18 +134,20 @@ export interface IManualPayment {
   verifiedAt?: Date;
   rejectedAt?: Date;
   rejectReason?: string;
-  verifiedBy?: string;
-  submissionCount: number;
+  verifiedBy?: string | IUser;
+  submissionCount?: number;
+  receiverSnapshot?: IReceiverSnapshot;
   acceptedAt?: Date;
 }
 
+// Payment audit log entry
 export interface IPaymentAuditLogEntry {
   action: string;
   fromStatus?: string;
   toStatus?: string;
-  performedBy?: string;
+  performedBy?: string | IUser;
   note?: string;
-  timestamp: Date;
+  timestamp?: Date;
 }
 
 export interface IBooking {
@@ -157,11 +175,37 @@ export interface IBooking {
   // Manual payment fields
   manualPayment?: IManualPayment;
   paymentRefCode?: string;
-  paymentMethodType?: PaymentMethodType;
-  joinUnlocked?: boolean;
   paymentAuditLog?: IPaymentAuditLogEntry[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Teacher payment info (payout details)
+export interface ITeacherPaymentInfo {
+  _id: string;
+  teacherId: string | IUser;
+  bkashNumber?: string;
+  nagadNumber?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  bankBranch?: string;
+  routingNumber?: string;
+  instructions?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Payment transaction registry (anti-fraud)
+export interface IPaymentTrxRegistry {
+  _id: string;
+  method: 'bkash' | 'nagad' | 'bank';
+  trxid: string;
+  bookingId: string | IBooking;
+  teacherId: string | IUser;
+  studentId: string | IUser;
+  amount: number;
+  createdAt: Date;
 }
 
 export interface IReview {
@@ -173,6 +217,8 @@ export interface IReview {
   rating: number; // 1..5
   title?: string;
   comment?: string;
+  teacherReply?: string; // Teacher's response to the review
+  teacherReplyAt?: Date; // When the teacher replied
   createdAt: Date;
   updatedAt: Date;
 }

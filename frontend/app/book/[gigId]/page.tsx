@@ -128,7 +128,7 @@ export default function BookGigPage() {
               <Calendar className="h-4 w-4" /> <span>Category: {gig.category}</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Clock className="h-4 w-4" /> <span>Duration: {gig.duration} min • ${gig.price}/hr</span>
+              <Clock className="h-4 w-4" /> <span>Duration: {gig.duration} min • ৳{gig.price}/hr</span>
             </div>
             <div className="pt-2">
               <Link href={`/teachers/${gig.teacher._id}`}>

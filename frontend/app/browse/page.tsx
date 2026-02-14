@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Search, Star, Clock, BookOpen, Code, Languages, FlaskConical, Loader2 } from "lucide-react"
+import { Search, Star, Clock, Loader2, TrendingUp, Sparkles, Award } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { gigsApi } from "@/services/api"
 import { getGigThumb } from "@/lib/images"
+import { CATEGORIES, getCategoryByKey, DEFAULT_CATEGORY_ICON } from "@/lib/constants/categories"
 
 // Type definitions
 interface Gig {
@@ -23,19 +24,19 @@ interface Gig {
   duration: string
   createdAt: string
   thumbnailUrl?: string
+  averageRating?: number
+  reviewsCount?: number
+  isFeatured?: boolean
+  isPromoted?: boolean
+  completedBookingsCount?: number
   teacher: {
     _id: string
     name: string
     email: string
+    avatar?: string
+    teacherRatingAverage?: number
   }
 }
-
-const categories = [
-    { key: "Mathematics", label: "Mathematics", icon: BookOpen },
-    { key: "Programming", label: "Programming", icon: Code },
-    { key: "Languages", label: "Languages", icon: Languages },
-    { key: "Science", label: "Science", icon: FlaskConical },
-]
 
 export default function BrowsePage() {
     const router = useRouter()
@@ -43,9 +44,29 @@ export default function BrowsePage() {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
     const [priceRange, setPriceRange] = useState("all")
+    const [sortBy, setSortBy] = useState("recommended")
     const [loading, setLoading] = useState(false)
     const [gigs, setGigs] = useState<Gig[]>([])
     const [error, setError] = useState("")
+
+    const loadGigs = useCallback(async () => {
+        if (!selectedCategory) return
+        try {
+            setLoading(true)
+            setError("")
+            // Pass category and sort to API for server-side filtering/sorting
+            const response = await gigsApi.getAllGigs({ 
+                category: selectedCategory || undefined,
+                sort: sortBy === 'recommended' ? undefined : sortBy 
+            })
+            setGigs(response.data || [])
+        } catch (error: any) {
+            console.error("Error loading gigs:", error)
+            setError("Failed to load gigs. Please try again.")
+        } finally {
+            setLoading(false)
+        }
+    }, [selectedCategory, sortBy])
 
     // Initialize category from URL (e.g., /browse?category=mathematics)
     useEffect(() => {
@@ -56,25 +77,11 @@ export default function BrowsePage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams])
 
-    // Load gigs when category changes
+    // Load gigs when category or sort changes
     useEffect(() => {
         if (!selectedCategory) return
         loadGigs()
-    }, [selectedCategory])
-
-    const loadGigs = async () => {
-        try {
-            setLoading(true)
-            setError("")
-            const response = await gigsApi.getAllGigs()
-            setGigs(response.data || [])
-        } catch (error: any) {
-            console.error("Error loading gigs:", error)
-            setError("Failed to load gigs. Please try again.")
-        } finally {
-            setLoading(false)
-        }
-    }
+    }, [selectedCategory, loadGigs])
 
     // NOTE: Removed Popular gigs (kept dynamic and clean per new design)
 
@@ -95,7 +102,7 @@ export default function BrowsePage() {
                         </p>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-5 sm:gap-6 max-w-4xl mx-auto">
-                        {categories.map((cat) => {
+                        {CATEGORIES.map((cat) => {
                             const Icon = cat.icon
                             return (
                                 <Card
@@ -128,19 +135,18 @@ export default function BrowsePage() {
         )
     }
 
-    // Filter gigs by selected category
+    // Filter gigs client-side for search and price (category already filtered by API)
     const filteredGigs = gigs.filter((gig) =>
-        gig.category.toLowerCase() === selectedCategory?.toLowerCase() &&
-        (gig.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            gig.teacher.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            gig.category.toLowerCase().includes(searchQuery.toLowerCase())) &&
+        (searchQuery === "" || 
+            gig.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            gig.teacher.name.toLowerCase().includes(searchQuery.toLowerCase())) &&
         (priceRange === "all" ||
             (priceRange === "under25" && gig.price < 25) ||
             (priceRange === "25-35" && gig.price >= 25 && gig.price <= 35) ||
             (priceRange === "over35" && gig.price > 35))
     )
 
-    const categoryLabel = categories.find((c) => c.key === selectedCategory)?.label
+    const categoryLabel = getCategoryByKey(selectedCategory || "")?.label || selectedCategory
 
     return (
         <div className="container mx-auto px-4 py-10">
@@ -178,16 +184,29 @@ export default function BrowsePage() {
                                 />
                             </div>
                         </div>
-                        <div className="flex gap-4 w-full md:w-auto">
+                        <div className="flex gap-3 w-full md:w-auto">
+                            <Select value={sortBy} onValueChange={setSortBy}>
+                                <SelectTrigger className="w-full md:w-44">
+                                    <SelectValue placeholder="Sort by" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="recommended">Recommended</SelectItem>
+                                    <SelectItem value="newest">Newest First</SelectItem>
+                                    <SelectItem value="rating">Top Rated</SelectItem>
+                                    <SelectItem value="popular">Most Popular</SelectItem>
+                                    <SelectItem value="price_low">Price: Low to High</SelectItem>
+                                    <SelectItem value="price_high">Price: High to Low</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <Select value={priceRange} onValueChange={setPriceRange}>
                                 <SelectTrigger className="w-full md:w-40">
                                     <SelectValue placeholder="Price Range" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Prices</SelectItem>
-                                    <SelectItem value="under25">Under $25</SelectItem>
-                                    <SelectItem value="25-35">$25 - $35</SelectItem>
-                                    <SelectItem value="over35">Over $35</SelectItem>
+                                    <SelectItem value="under25">Under ৳25</SelectItem>
+                                    <SelectItem value="25-35">৳25 - ৳35</SelectItem>
+                                    <SelectItem value="over35">Over ৳35</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -213,22 +232,37 @@ export default function BrowsePage() {
                     </div>
                 ) : (
                     filteredGigs.map((gig) => (
-                        <Card key={gig._id} className="overflow-hidden rounded-2xl hover:shadow-lg transition-shadow">
+                        <Card key={gig._id} className={`overflow-hidden rounded-2xl hover:shadow-lg transition-shadow relative ${gig.isFeatured ? 'ring-2 ring-amber-400' : gig.isPromoted ? 'ring-2 ring-purple-400' : ''}`}>
+                            {/* Ranking Badges */}
+                            {(gig.isFeatured || gig.isPromoted) && (
+                                <div className="absolute top-2 left-2 z-10 flex gap-1">
+                                    {gig.isFeatured && (
+                                        <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs flex items-center gap-1">
+                                            <Award className="h-3 w-3" /> Featured
+                                        </Badge>
+                                    )}
+                                    {gig.isPromoted && !gig.isFeatured && (
+                                        <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs flex items-center gap-1">
+                                            <TrendingUp className="h-3 w-3" /> Promoted
+                                        </Badge>
+                                    )}
+                                </div>
+                            )}
                             <div className="aspect-video w-full overflow-hidden bg-muted">
                                 <img src={getGigThumb(gig.thumbnailUrl, 640, 360)} alt={`${gig.title} thumbnail`} className="w-full h-full object-cover" />
                             </div>
                             <CardContent className="p-4">
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs rounded-full bg-primary/10 text-primary px-2 py-0.5">{gig.category}</span>
-                                    <div className="text-xs text-muted-foreground">${gig.price}/hr</div>
+                                    <div className="text-xs text-muted-foreground">৳{gig.price}/hr</div>
                                 </div>
                                 <div className="font-semibold leading-snug mb-1 line-clamp-2">{gig.title}</div>
                                 <div className="text-sm text-muted-foreground mb-3">by {gig.teacher.name}</div>
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-1 text-amber-500 text-xs sm:text-sm">
                                         <Star className="h-3 w-3 sm:h-4 sm:w-4 fill-current" />
-                                        <span>4.8</span>
-                                        <span className="text-muted-foreground">(12)</span>
+                                        <span>{(gig.averageRating || 0).toFixed(1)}</span>
+                                        <span className="text-muted-foreground">({gig.reviewsCount || 0})</span>
                                     </div>
                                     <div className="flex items-center gap-1 text-muted-foreground text-xs sm:text-sm">
                                         <Clock className="h-3 w-3 sm:h-4 sm:w-4" />

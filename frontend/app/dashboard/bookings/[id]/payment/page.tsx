@@ -1,212 +1,322 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
-import { bookingsApi, teacherPaymentApi, uploadsApi } from "@/services/api"
+import { manualPaymentApi, uploadsApi } from "@/services/api"
 import { 
   Loader2, 
-  CreditCard, 
-  Phone, 
-  Building2, 
+  Copy, 
+  Check, 
   Upload, 
-  CheckCircle2, 
+  Smartphone, 
+  Building2, 
   Clock, 
-  XCircle,
   AlertCircle,
-  Copy,
-  ArrowLeft
+  CheckCircle,
+  XCircle,
+  RefreshCw
 } from "lucide-react"
-
-type PaymentMethod = 'bkash' | 'nagad' | 'bank'
 
 interface TeacherPaymentInfo {
   bkashNumber?: string
   nagadNumber?: string
-  accountName?: string
+  bankAccountName?: string
+  bankAccountNumber?: string
+  bankName?: string
+  bankBranch?: string
+  routingNumber?: string
   instructions?: string
-  bankDetails?: {
-    bankName?: string
-    accountNumber?: string
-    accountName?: string
-    branchName?: string
-  }
+  updatedAt?: string
 }
 
-interface ManualPaymentStatus {
-  status: 'pending_manual' | 'submitted' | 'verified' | 'rejected' | 'expired'
-  method?: PaymentMethod
-  amountExpected?: number
-  amountPaid?: number
-  trxid?: string
-  submittedAt?: string
-  verifiedAt?: string
-  rejectedAt?: string
-  rejectReason?: string
+interface PaymentData {
+  bookingId: string
+  paymentRefCode: string
+  amountExpected: number
+  teacherName: string
+  teacherEmail?: string
+  gigTitle: string
+  paymentStatus: string
   submissionCount: number
   maxSubmissions: number
-  canSubmit: boolean
+  teacherPaymentInfo: TeacherPaymentInfo
+  submissionWindowHours: number
+  acceptedAt?: string
 }
 
-interface PaymentStatusData {
-  bookingId: string
-  paymentMethodType: string
-  paymentRefCode: string
-  manualPayment: ManualPaymentStatus
-  joinUnlocked: boolean
-  teacher: { _id: string; name: string }
-  gigPrice: number
-}
+type PaymentMethod = 'bkash' | 'nagad' | 'bank'
 
 export default function PaymentBoardingPage() {
   const params = useParams()
   const router = useRouter()
-  const { toast } = useToast()
   const bookingId = params.id as string
+  const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatusData | null>(null)
-  const [teacherPaymentInfo, setTeacherPaymentInfo] = useState<TeacherPaymentInfo | null>(null)
-  
+  const [paymentData, setPaymentData] = useState<PaymentData | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<string | null>(null)
+
   // Form state
   const [method, setMethod] = useState<PaymentMethod>('bkash')
   const [trxid, setTrxid] = useState('')
   const [senderNumber, setSenderNumber] = useState('')
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
+  const [screenshotUrl, setScreenshotUrl] = useState('')
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
 
-  useEffect(() => {
-    loadPaymentData()
-  }, [bookingId])
+  // Copy state
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
-  // Poll for status updates when waiting for verification
-  useEffect(() => {
-    if (paymentStatus?.manualPayment?.status === 'submitted') {
-      const interval = setInterval(loadPaymentData, 10000) // Poll every 10s
-      return () => clearInterval(interval)
-    }
-  }, [paymentStatus?.manualPayment?.status])
+  // Polling for status updates
+  const [polling, setPolling] = useState(false)
 
-  const loadPaymentData = async () => {
+  const fetchPaymentInfo = useCallback(async () => {
     try {
-      const res = await bookingsApi.getPaymentStatus(bookingId)
-      setPaymentStatus(res.data)
-
-      // Fetch teacher payment info
-      if (res.data?.teacher?._id) {
-        try {
-          const infoRes = await teacherPaymentApi.getTeacherPaymentInfo(res.data.teacher._id)
-          setTeacherPaymentInfo(infoRes.data)
-        } catch {
-          // Teacher may not have set up payment info
-        }
-      }
-
-      // If verified, redirect to join
-      if (res.data?.joinUnlocked) {
-        toast({ title: "Payment Verified!", description: "You can now join the class." })
-        router.push(`/dashboard/join-class`)
-      }
+      setLoading(true)
+      setError(null)
+      setErrorCode(null)
+      const res = await manualPaymentApi.getManualPaymentInfo(bookingId)
+      setPaymentData(res.data)
     } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err?.response?.data?.message || "Failed to load payment status",
-        variant: "destructive"
-      })
+      const code = err?.response?.data?.code
+      const message = err?.response?.data?.message || 'Failed to load payment information'
+      setError(message)
+      setErrorCode(code)
     } finally {
       setLoading(false)
     }
+  }, [bookingId])
+
+  useEffect(() => {
+    fetchPaymentInfo()
+  }, [fetchPaymentInfo])
+
+  // Poll for status updates when waiting for verification
+  useEffect(() => {
+    if (paymentData?.paymentStatus === 'submitted') {
+      setPolling(true)
+      const interval = setInterval(async () => {
+        // Skip polling when tab is hidden
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+        try {
+          const res = await manualPaymentApi.getPaymentStatus(bookingId)
+          if (res.data?.paymentStatus !== 'submitted') {
+            setPaymentData(prev => prev ? { ...prev, paymentStatus: res.data.paymentStatus } : null)
+            clearInterval(interval)
+            setPolling(false)
+            
+            if (res.data.paymentStatus === 'verified') {
+              toast({
+                title: "Payment Verified!",
+                description: "Your payment has been verified. You can now join the class.",
+              })
+            } else if (res.data.paymentStatus === 'rejected') {
+              toast({
+                title: "Payment Rejected",
+                description: res.data.rejectReason || "Please check the details and try again.",
+                variant: "destructive",
+              })
+              fetchPaymentInfo() // Refresh to get updated data
+            }
+          }
+        } catch {
+          // Ignore polling errors
+        }
+      }, 10000) // Poll every 10 seconds
+
+      // Stop polling after 30 minutes to prevent zombie polls
+      const maxPollTimer = setTimeout(() => {
+        clearInterval(interval)
+        setPolling(false)
+      }, 30 * 60 * 1000)
+
+      return () => {
+        clearInterval(interval)
+        clearTimeout(maxPollTimer)
+      }
+    }
+  }, [paymentData?.paymentStatus, bookingId, toast, fetchPaymentInfo])
+
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(null), 2000)
+    } catch {
+      toast({
+        title: "Copy Failed",
+        description: "Please copy manually",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!trxid.trim()) {
-      toast({ title: "Error", description: "Transaction ID is required", variant: "destructive" })
+  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Screenshot must be less than 5MB",
+        variant: "destructive",
+      })
       return
     }
 
-    setSubmitting(true)
     try {
-      let screenshotUrl: string | undefined
+      setUploadingScreenshot(true)
+      const res = await uploadsApi.uploadImage(file, 'payment-screenshots')
+      setScreenshotUrl(res.data?.url || res.url)
+      toast({
+        title: "Screenshot Uploaded",
+        description: "Screenshot uploaded successfully",
+      })
+    } catch {
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload screenshot",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingScreenshot(false)
+    }
+  }
 
-      // Upload screenshot if provided
-      if (screenshotFile) {
-        setUploadingScreenshot(true)
-        try {
-          const uploadRes = await uploadsApi.uploadImage(screenshotFile, 'payment-screenshots')
-          screenshotUrl = uploadRes.data?.url
-        } catch {
-          toast({ title: "Warning", description: "Failed to upload screenshot, submitting without it" })
-        }
-        setUploadingScreenshot(false)
-      }
+  const handleSubmit = async () => {
+    if (!trxid.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Transaction ID is required",
+        variant: "destructive",
+      })
+      return
+    }
 
-      await bookingsApi.submitPaymentProof(bookingId, {
+    try {
+      setSubmitting(true)
+      await manualPaymentApi.submitPaymentProof(bookingId, {
         method,
         trxid: trxid.trim(),
         senderNumber: senderNumber.trim() || undefined,
-        amountPaid: paymentStatus?.manualPayment?.amountExpected,
-        screenshotUrl,
+        amountPaid: paymentData?.amountExpected,
+        screenshotUrl: screenshotUrl || undefined,
       })
-
-      toast({ title: "Success", description: "Payment proof submitted! Waiting for teacher verification." })
-      loadPaymentData()
+      
+      toast({
+        title: "Payment Proof Submitted",
+        description: "Waiting for teacher verification...",
+      })
+      
+      // Refresh data
+      fetchPaymentInfo()
     } catch (err: any) {
-      const msg = err?.response?.data?.message || "Failed to submit payment proof"
-      toast({ title: "Error", description: msg, variant: "destructive" })
+      const code = err?.response?.data?.code
+      const message = err?.response?.data?.message || 'Failed to submit payment proof'
+      
+      if (code === 'DUPLICATE_TRXID') {
+        toast({
+          title: "Duplicate Transaction ID",
+          description: "This transaction ID has already been used. Please provide a unique one.",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Submission Failed",
+          description: message,
+          variant: "destructive",
+        })
+      }
     } finally {
       setSubmitting(false)
     }
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    toast({ title: "Copied!", description: "Copied to clipboard" })
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending_manual':
+        return <Badge className="bg-yellow-100 text-yellow-800">Payment Required</Badge>
+      case 'submitted':
+        return <Badge className="bg-blue-100 text-blue-800">Awaiting Verification</Badge>
+      case 'verified':
+        return <Badge className="bg-green-100 text-green-800">Verified</Badge>
+      case 'rejected':
+        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
+      case 'expired':
+        return <Badge className="bg-gray-100 text-gray-800">Expired</Badge>
+      default:
+        return <Badge>{status}</Badge>
+    }
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Loading payment details...</p>
+        </div>
       </div>
     )
   }
 
-  if (!paymentStatus) {
+  if (error) {
     return (
-      <div className="text-center py-12">
-        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold">Payment information not found</h2>
-        <Button onClick={() => router.back()} className="mt-4">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Go Back
-        </Button>
+      <div className="max-w-2xl mx-auto">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-6 w-6 text-red-600 flex-shrink-0" />
+              <div>
+                <h3 className="font-semibold text-red-800 mb-1">Unable to Load Payment</h3>
+                <p className="text-red-700">{error}</p>
+                {errorCode === 'TEACHER_PAYMENT_INFO_MISSING' && (
+                  <p className="text-sm text-red-600 mt-2">
+                    The teacher hasn't set up their payment details yet. Please contact them directly.
+                  </p>
+                )}
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => router.back()}
+                >
+                  Go Back
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
-  const { manualPayment } = paymentStatus
-  const status = manualPayment?.status || 'pending_manual'
+  if (!paymentData) return null
 
-  // Status-specific UI
-  if (status === 'verified') {
+  const { teacherPaymentInfo } = paymentData
+
+  // Verified - show success and join button
+  if (paymentData.paymentStatus === 'verified') {
     return (
-      <div className="max-w-2xl mx-auto py-8">
+      <div className="max-w-2xl mx-auto">
         <Card className="border-green-200 bg-green-50">
-          <CardContent className="pt-6 text-center">
-            <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
+          <CardContent className="p-8 text-center">
+            <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-green-800 mb-2">Payment Verified!</h2>
-            <p className="text-green-700 mb-6">Your payment has been confirmed. You can now join the class.</p>
-            <Button onClick={() => router.push('/dashboard/join-class')} className="bg-green-600 hover:bg-green-700">
+            <p className="text-green-700 mb-6">
+              Your payment has been verified by {paymentData.teacherName}. You can now join the class.
+            </p>
+            <Button 
+              size="lg"
+              onClick={() => router.push(`/dashboard/join-class`)}
+              className="bg-green-600 hover:bg-green-700"
+            >
               Go to Join Class
             </Button>
           </CardContent>
@@ -215,16 +325,48 @@ export default function PaymentBoardingPage() {
     )
   }
 
-  if (status === 'expired') {
+  // Submitted - waiting for verification
+  if (paymentData.paymentStatus === 'submitted') {
     return (
-      <div className="max-w-2xl mx-auto py-8">
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6 text-center">
-            <XCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-red-800 mb-2">Payment Window Expired</h2>
-            <p className="text-red-700 mb-6">The payment window for this booking has expired. Please contact support or book a new session.</p>
-            <Button onClick={() => router.push('/dashboard/bookings')} variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back to Bookings
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <div className="relative inline-block mb-4">
+              <Clock className="h-16 w-16 text-blue-600" />
+              {polling && (
+                <RefreshCw className="h-6 w-6 text-blue-600 absolute -right-2 -bottom-2 animate-spin" />
+              )}
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Waiting for Verification</h2>
+            <p className="text-gray-600 mb-4">
+              Your payment proof has been submitted. {paymentData.teacherName} will verify it shortly.
+            </p>
+            <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+              <p className="text-sm text-gray-500 mb-1">Reference Code</p>
+              <p className="font-mono font-semibold">{paymentData.paymentRefCode}</p>
+            </div>
+            <p className="text-sm text-gray-500">
+              This page will automatically update when the teacher responds.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Expired
+  if (paymentData.paymentStatus === 'expired') {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card className="border-gray-200 bg-gray-50">
+          <CardContent className="p-8 text-center">
+            <XCircle className="h-16 w-16 text-gray-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Payment Window Expired</h2>
+            <p className="text-gray-600 mb-6">
+              The payment submission window has expired. Please contact the teacher or book a new session.
+            </p>
+            <Button variant="outline" onClick={() => router.back()}>
+              Go Back
             </Button>
           </CardContent>
         </Card>
@@ -232,222 +374,283 @@ export default function PaymentBoardingPage() {
     )
   }
 
-  if (status === 'submitted') {
+  // Max submissions reached
+  if (paymentData.submissionCount >= paymentData.maxSubmissions) {
     return (
-      <div className="max-w-2xl mx-auto py-8">
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="pt-6 text-center">
-            <Clock className="h-16 w-16 text-yellow-600 mx-auto mb-4 animate-pulse" />
-            <h2 className="text-2xl font-bold text-yellow-800 mb-2">Waiting for Verification</h2>
-            <p className="text-yellow-700 mb-4">
-              Your payment proof has been submitted. The teacher will verify it shortly.
+      <div className="max-w-2xl mx-auto">
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-8 text-center">
+            <AlertCircle className="h-16 w-16 text-orange-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-orange-800 mb-2">Maximum Attempts Reached</h2>
+            <p className="text-orange-700 mb-6">
+              You've reached the maximum number of submission attempts ({paymentData.maxSubmissions}). 
+              Please contact support for assistance.
             </p>
-            <div className="bg-white rounded-lg p-4 mb-6 text-left">
-              <p className="text-sm text-gray-600">
-                <strong>Method:</strong> {manualPayment.method?.toUpperCase()}
-              </p>
-              <p className="text-sm text-gray-600">
-                <strong>Transaction ID:</strong> {manualPayment.trxid}
-              </p>
-              <p className="text-sm text-gray-600">
-                <strong>Amount:</strong> ৳{manualPayment.amountPaid || manualPayment.amountExpected}
-              </p>
-              <p className="text-sm text-gray-600">
-                <strong>Submitted:</strong> {manualPayment.submittedAt ? new Date(manualPayment.submittedAt).toLocaleString() : 'N/A'}
-              </p>
-            </div>
-            <p className="text-sm text-gray-500">This page will auto-refresh when the teacher verifies your payment.</p>
+            <Button variant="outline" onClick={() => router.back()}>
+              Go Back
+            </Button>
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  // Show rejection message if rejected
-  const showRejectionAlert = status === 'rejected' && manualPayment.canSubmit
-
+  // Payment form (pending_manual or rejected)
   return (
-    <div className="max-w-3xl mx-auto py-8 space-y-6">
-      <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-        <ArrowLeft className="h-4 w-4 mr-2" /> Back
-      </Button>
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Complete Payment</h1>
+        <p className="text-gray-600 mt-1">
+          Pay for: <span className="font-medium">{paymentData.gigTitle}</span>
+        </p>
+      </div>
 
+      {/* Rejected Warning */}
+      {paymentData.paymentStatus === 'rejected' && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-red-800">Previous submission was rejected</p>
+                <p className="text-sm text-red-700">
+                  Please check your transaction details and try again. 
+                  Attempts: {paymentData.submissionCount}/{paymentData.maxSubmissions}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Payment Summary */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-6 w-6" />
-            Complete Your Payment
-          </CardTitle>
-          <CardDescription>
-            Pay the teacher directly and submit your transaction details for verification.
-          </CardDescription>
+          <CardTitle>Payment Summary</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {showRejectionAlert && (
-            <Alert variant="destructive">
-              <XCircle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Previous submission rejected:</strong> {manualPayment.rejectReason || 'No reason provided'}
-                <br />
-                <span className="text-sm">
-                  You have {manualPayment.maxSubmissions - manualPayment.submissionCount} attempt(s) remaining.
-                </span>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Payment Amount */}
-          <div className="bg-blue-50 rounded-lg p-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700">Amount to Pay</span>
-              <span className="text-2xl font-bold text-blue-700">৳{manualPayment.amountExpected || paymentStatus.gigPrice}</span>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Amount</p>
+              <p className="text-2xl font-bold text-green-600">৳{paymentData.amountExpected}</p>
             </div>
-            <div className="flex justify-between items-center mt-2 text-sm">
-              <span className="text-gray-600">Reference Code</span>
+            <div>
+              <p className="text-sm text-gray-500">Teacher</p>
+              <p className="font-medium">{paymentData.teacherName}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Reference Code</p>
               <div className="flex items-center gap-2">
-                <code className="bg-white px-2 py-1 rounded">{paymentStatus.paymentRefCode}</code>
-                <Button size="sm" variant="ghost" onClick={() => copyToClipboard(paymentStatus.paymentRefCode)}>
-                  <Copy className="h-4 w-4" />
+                <code className="bg-gray-100 px-2 py-1 rounded font-mono text-sm">
+                  {paymentData.paymentRefCode}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(paymentData.paymentRefCode, 'refCode')}
+                >
+                  {copiedField === 'refCode' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
+            <div>
+              <p className="text-sm text-gray-500">Status</p>
+              {getStatusBadge(paymentData.paymentStatus)}
+            </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Teacher Payment Info */}
-          {teacherPaymentInfo && (
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900">Teacher Payment Details</h3>
-              
-              {teacherPaymentInfo.bkashNumber && (
-                <div className="flex items-center gap-3 p-3 bg-pink-50 rounded-lg">
-                  <Phone className="h-5 w-5 text-pink-600" />
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600">bKash</p>
-                    <p className="font-medium">{teacherPaymentInfo.bkashNumber}</p>
+      {/* Teacher Payment Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment Methods</CardTitle>
+          <CardDescription>
+            Choose a payment method and send the exact amount to the teacher
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* bKash */}
+          {teacherPaymentInfo.bkashNumber && (
+            <div 
+              className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                method === 'bkash' ? 'border-pink-500 bg-pink-50' : 'border-gray-200 hover:border-pink-300'
+              }`}
+              onClick={() => setMethod('bkash')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-pink-600 rounded-lg flex items-center justify-center">
+                    <Smartphone className="h-5 w-5 text-white" />
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => copyToClipboard(teacherPaymentInfo.bkashNumber!)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-
-              {teacherPaymentInfo.nagadNumber && (
-                <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg">
-                  <Phone className="h-5 w-5 text-orange-600" />
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600">Nagad</p>
-                    <p className="font-medium">{teacherPaymentInfo.nagadNumber}</p>
-                  </div>
-                  <Button size="sm" variant="ghost" onClick={() => copyToClipboard(teacherPaymentInfo.nagadNumber!)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-
-              {teacherPaymentInfo.bankDetails?.bankName && (
-                <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                  <Building2 className="h-5 w-5 text-gray-600 mt-1" />
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600">Bank Transfer</p>
-                    <p className="font-medium">{teacherPaymentInfo.bankDetails.bankName}</p>
-                    <p className="text-sm text-gray-600">
-                      {teacherPaymentInfo.bankDetails.accountName} • {teacherPaymentInfo.bankDetails.accountNumber}
-                    </p>
-                    {teacherPaymentInfo.bankDetails.branchName && (
-                      <p className="text-sm text-gray-500">{teacherPaymentInfo.bankDetails.branchName}</p>
-                    )}
+                  <div>
+                    <p className="font-medium">bKash</p>
+                    <p className="text-lg font-mono">{teacherPaymentInfo.bkashNumber}</p>
                   </div>
                 </div>
-              )}
-
-              {teacherPaymentInfo.instructions && (
-                <div className="p-3 bg-yellow-50 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Instructions:</strong> {teacherPaymentInfo.instructions}
-                  </p>
-                </div>
-              )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    copyToClipboard(teacherPaymentInfo.bkashNumber!, 'bkash')
+                  }}
+                >
+                  {copiedField === 'bkash' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
           )}
 
-          {/* Payment Form */}
-          <form onSubmit={handleSubmit} className="space-y-4 pt-4 border-t">
-            <h3 className="font-semibold text-gray-900">Submit Payment Proof</h3>
-
-            <div className="space-y-2">
-              <Label>Payment Method *</Label>
-              <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bkash">bKash</SelectItem>
-                  <SelectItem value="nagad">Nagad</SelectItem>
-                  <SelectItem value="bank">Bank Transfer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Transaction ID *</Label>
-              <Input
-                value={trxid}
-                onChange={(e) => setTrxid(e.target.value)}
-                placeholder="Enter your transaction ID"
-                required
-              />
-              <p className="text-xs text-gray-500">The unique transaction/reference number from your payment</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Sender Number (Optional)</Label>
-              <Input
-                value={senderNumber}
-                onChange={(e) => setSenderNumber(e.target.value)}
-                placeholder="Your bKash/Nagad number"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Screenshot (Optional)</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)}
-                  className="flex-1"
-                />
-                {screenshotFile && (
-                  <Badge variant="secondary">{screenshotFile.name}</Badge>
-                )}
-              </div>
-              <p className="text-xs text-gray-500">Upload a screenshot of your payment confirmation</p>
-            </div>
-
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={submitting || uploadingScreenshot || !manualPayment.canSubmit}
+          {/* Nagad */}
+          {teacherPaymentInfo.nagadNumber && (
+            <div 
+              className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                method === 'nagad' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-300'
+              }`}
+              onClick={() => setMethod('nagad')}
             >
-              {submitting || uploadingScreenshot ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {uploadingScreenshot ? 'Uploading...' : 'Submitting...'}
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Submit Payment Proof
-                </>
-              )}
-            </Button>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
+                    <Smartphone className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Nagad</p>
+                    <p className="text-lg font-mono">{teacherPaymentInfo.nagadNumber}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    copyToClipboard(teacherPaymentInfo.nagadNumber!, 'nagad')
+                  }}
+                >
+                  {copiedField === 'nagad' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          )}
 
-            {!manualPayment.canSubmit && (
-              <p className="text-sm text-red-600 text-center">
-                Maximum submissions reached. Please contact admin for assistance.
-              </p>
+          {/* Bank */}
+          {teacherPaymentInfo.bankAccountNumber && teacherPaymentInfo.bankName && (
+            <div 
+              className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                method === 'bank' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
+              }`}
+              onClick={() => setMethod('bank')}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-medium">Bank Transfer</p>
+                    <p className="text-sm text-gray-600">{teacherPaymentInfo.bankName}</p>
+                    {teacherPaymentInfo.bankBranch && (
+                      <p className="text-sm text-gray-500">{teacherPaymentInfo.bankBranch}</p>
+                    )}
+                    <p className="font-mono">{teacherPaymentInfo.bankAccountNumber}</p>
+                    {teacherPaymentInfo.bankAccountName && (
+                      <p className="text-sm text-gray-600">A/C: {teacherPaymentInfo.bankAccountName}</p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    copyToClipboard(teacherPaymentInfo.bankAccountNumber!, 'bank')
+                  }}
+                >
+                  {copiedField === 'bank' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Instructions */}
+          {teacherPaymentInfo.instructions && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm font-medium text-yellow-800 mb-1">Teacher's Instructions</p>
+              <p className="text-sm text-yellow-700">{teacherPaymentInfo.instructions}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Submit Payment Proof */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Submit Payment Proof</CardTitle>
+          <CardDescription>
+            After completing the payment, enter the transaction details below
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="trxid">Transaction ID / Reference Number *</Label>
+            <Input
+              id="trxid"
+              placeholder="Enter the transaction ID from your payment"
+              value={trxid}
+              onChange={(e) => setTrxid(e.target.value)}
+              maxLength={100}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="senderNumber">Sender Number (Optional)</Label>
+            <Input
+              id="senderNumber"
+              placeholder="Your bKash/Nagad number used for payment"
+              value={senderNumber}
+              onChange={(e) => setSenderNumber(e.target.value)}
+              maxLength={20}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Screenshot (Optional)</Label>
+            <div className="flex items-center gap-4">
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={handleScreenshotUpload}
+                disabled={uploadingScreenshot}
+                className="flex-1"
+              />
+              {uploadingScreenshot && <Loader2 className="h-5 w-5 animate-spin" />}
+              {screenshotUrl && <Check className="h-5 w-5 text-green-600" />}
+            </div>
+            {screenshotUrl && (
+              <p className="text-sm text-green-600">Screenshot uploaded successfully</p>
             )}
-          </form>
+          </div>
+
+          <Button 
+            onClick={handleSubmit} 
+            disabled={submitting || !trxid.trim()}
+            className="w-full"
+            size="lg"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4 mr-2" />
+                Submit Payment Proof
+              </>
+            )}
+          </Button>
         </CardContent>
       </Card>
     </div>

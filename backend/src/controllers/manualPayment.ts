@@ -1,14 +1,29 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import Booking from '../models/Booking';
 import Gig from '../models/Gig';
 import TeacherPaymentInfo from '../models/TeacherPaymentInfo';
 import PaymentTrxRegistry from '../models/PaymentTrxRegistry';
 import { logActivity } from '../utils/activityLogger';
 
-// Configuration constants (could be moved to env)
+// Configuration (can be moved to env)
 const PAYMENT_SUBMISSION_WINDOW_HOURS = parseInt(process.env.PAYMENT_SUBMISSION_WINDOW_HOURS || '12', 10);
-const VERIFICATION_WINDOW_HOURS = parseInt(process.env.VERIFICATION_WINDOW_HOURS || '24', 10);
+const PAYMENT_VERIFICATION_WINDOW_HOURS = parseInt(process.env.PAYMENT_VERIFICATION_WINDOW_HOURS || '24', 10);
 const MAX_SUBMISSION_COUNT = parseInt(process.env.MAX_PAYMENT_SUBMISSIONS || '3', 10);
+
+// Helper to check if payment submission window is expired
+const isSubmissionWindowExpired = (acceptedAt: Date | undefined): boolean => {
+  if (!acceptedAt) return false;
+  const windowEnd = new Date(acceptedAt.getTime() + PAYMENT_SUBMISSION_WINDOW_HOURS * 60 * 60 * 1000);
+  return new Date() > windowEnd;
+};
+
+// Helper to check if verification window is expired
+const isVerificationWindowExpired = (submittedAt: Date | undefined): boolean => {
+  if (!submittedAt) return false;
+  const windowEnd = new Date(submittedAt.getTime() + PAYMENT_VERIFICATION_WINDOW_HOURS * 60 * 60 * 1000);
+  return new Date() > windowEnd;
+};
 
 // Helper to add audit log entry
 const addAuditLog = (booking: any, action: string, fromStatus: string | undefined, toStatus: string, performedBy: string, note?: string) => {
@@ -19,7 +34,7 @@ const addAuditLog = (booking: any, action: string, fromStatus: string | undefine
     action,
     fromStatus,
     toStatus,
-    performedBy,
+    performedBy: new mongoose.Types.ObjectId(performedBy),
     note,
     timestamp: new Date(),
   });
@@ -29,24 +44,63 @@ const addAuditLog = (booking: any, action: string, fromStatus: string | undefine
 // Teacher Payment Info Endpoints
 // ============================================
 
-// PUT /api/teachers/me/payment-info
-export const upsertTeacherPaymentInfo = async (req: Request, res: Response) => {
+// GET /api/teachers/me/payment-info
+export const getMyPaymentInfo = async (req: Request, res: Response) => {
   try {
     if (req.user.role !== 'teacher') {
-      return res.status(403).json({ success: false, message: 'Only teachers can set payment info' });
+      return res.status(403).json({ success: false, message: 'Only teachers can access payment info' });
     }
 
-    const { bkashNumber, nagadNumber, bankDetails, accountName, instructions } = req.body;
+    const info = await TeacherPaymentInfo.findOne({ teacherId: req.user._id });
+    return res.json({
+      success: true,
+      data: info || null,
+    });
+  } catch (err) {
+    console.error('Error fetching teacher payment info:', err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch payment info' });
+  }
+};
 
-    const paymentInfo = await TeacherPaymentInfo.findOneAndUpdate(
+// PUT /api/teachers/me/payment-info
+export const upsertMyPaymentInfo = async (req: Request, res: Response) => {
+  try {
+    if (req.user.role !== 'teacher') {
+      return res.status(403).json({ success: false, message: 'Only teachers can update payment info' });
+    }
+
+    const {
+      bkashNumber,
+      nagadNumber,
+      bankAccountName,
+      bankAccountNumber,
+      bankName,
+      bankBranch,
+      routingNumber,
+      instructions,
+    } = req.body;
+
+    // Validate at least one payment method is provided
+    const hasAnyMethod = bkashNumber || nagadNumber || (bankAccountNumber && bankName);
+    if (!hasAnyMethod) {
+      return res.status(422).json({
+        success: false,
+        message: 'Please provide at least one payment method (bKash, Nagad, or Bank details)',
+      });
+    }
+
+    const info = await TeacherPaymentInfo.findOneAndUpdate(
       { teacherId: req.user._id },
       {
         teacherId: req.user._id,
-        bkashNumber,
-        nagadNumber,
-        bankDetails,
-        accountName,
-        instructions,
+        bkashNumber: bkashNumber?.trim() || undefined,
+        nagadNumber: nagadNumber?.trim() || undefined,
+        bankAccountName: bankAccountName?.trim() || undefined,
+        bankAccountNumber: bankAccountNumber?.trim() || undefined,
+        bankName: bankName?.trim() || undefined,
+        bankBranch: bankBranch?.trim() || undefined,
+        routingNumber: routingNumber?.trim() || undefined,
+        instructions: instructions?.trim() || undefined,
       },
       { upsert: true, new: true, runValidators: true }
     );
@@ -55,70 +109,107 @@ export const upsertTeacherPaymentInfo = async (req: Request, res: Response) => {
       userId: req.user._id,
       action: 'teacher.paymentInfo.update',
       targetType: 'TeacherPaymentInfo',
-      targetId: String(paymentInfo._id),
-      metadata: {},
+      targetId: String(info._id),
+      metadata: { teacherId: String(req.user._id) },
       req,
     });
 
-    return res.json({ success: true, data: paymentInfo });
-  } catch (err: any) {
-    console.error('Error upserting teacher payment info:', err);
+    return res.json({
+      success: true,
+      message: 'Payment info updated successfully',
+      data: info,
+    });
+  } catch (err) {
+    console.error('Error updating teacher payment info:', err);
     return res.status(500).json({ success: false, message: 'Failed to update payment info' });
   }
 };
 
-// GET /api/teachers/me/payment-info
-export const getMyPaymentInfo = async (req: Request, res: Response) => {
+// ============================================
+// Student Payment Boarding Endpoints
+// ============================================
+
+// GET /api/bookings/:id/manual-payment-info
+export const getManualPaymentInfo = async (req: Request, res: Response) => {
   try {
-    if (req.user.role !== 'teacher') {
-      return res.status(403).json({ success: false, message: 'Only teachers can access their payment info' });
+    const { id } = req.params;
+
+    const booking = await Booking.findById(id)
+      .populate({
+        path: 'gig',
+        select: 'title price duration teacher',
+        populate: { path: 'teacher', select: 'name email avatar' },
+      })
+      .populate('student', 'name email');
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    const paymentInfo = await TeacherPaymentInfo.findOne({ teacherId: req.user._id });
-    return res.json({ success: true, data: paymentInfo || null });
-  } catch (err: any) {
-    console.error('Error fetching teacher payment info:', err);
+    // Authorization: only booking student or teacher
+    const studentId = (booking as any).student?._id?.toString() || (booking as any).student?.toString();
+    const teacherId = (booking as any).gig?.teacher?._id?.toString() || (booking as any).gig?.teacher?.toString();
+    const isStudent = studentId === req.user._id.toString();
+    const isTeacher = teacherId === req.user._id.toString();
+
+    if (!isStudent && !isTeacher) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    // Fetch teacher payment info
+    const teacherPaymentInfo = await TeacherPaymentInfo.findOne({ teacherId });
+
+    if (!teacherPaymentInfo) {
+      return res.status(409).json({
+        success: false,
+        message: 'Teacher has not added payment details yet. Please contact the teacher.',
+        code: 'TEACHER_PAYMENT_INFO_MISSING',
+      });
+    }
+
+    // Check for expired submission window
+    const manualPayment = (booking as any).manualPayment;
+    if (manualPayment?.acceptedAt && isSubmissionWindowExpired(manualPayment.acceptedAt)) {
+      // Mark as expired if not already
+      if (manualPayment.status === 'pending_manual') {
+        (booking as any).manualPayment.status = 'expired';
+        addAuditLog(booking, 'payment.expired', 'pending_manual', 'expired', 'system', 'Submission window expired');
+        await booking.save();
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        bookingId: booking._id,
+        paymentRefCode: (booking as any).paymentRefCode,
+        amountExpected: (booking as any).gig?.price || (booking as any).manualPayment?.amountExpected || 0,
+        teacherName: (booking as any).gig?.teacher?.name || 'Teacher',
+        teacherEmail: (booking as any).gig?.teacher?.email,
+        gigTitle: (booking as any).gig?.title,
+        paymentStatus: (booking as any).manualPayment?.status || 'pending_manual',
+        submissionCount: (booking as any).manualPayment?.submissionCount || 0,
+        maxSubmissions: MAX_SUBMISSION_COUNT,
+        teacherPaymentInfo: {
+          bkashNumber: teacherPaymentInfo.bkashNumber,
+          nagadNumber: teacherPaymentInfo.nagadNumber,
+          bankAccountName: teacherPaymentInfo.bankAccountName,
+          bankAccountNumber: teacherPaymentInfo.bankAccountNumber,
+          bankName: teacherPaymentInfo.bankName,
+          bankBranch: teacherPaymentInfo.bankBranch,
+          routingNumber: teacherPaymentInfo.routingNumber,
+          instructions: teacherPaymentInfo.instructions,
+          updatedAt: teacherPaymentInfo.updatedAt,
+        },
+        submissionWindowHours: PAYMENT_SUBMISSION_WINDOW_HOURS,
+        acceptedAt: (booking as any).manualPayment?.acceptedAt,
+      },
+    });
+  } catch (err) {
+    console.error('Error fetching manual payment info:', err);
     return res.status(500).json({ success: false, message: 'Failed to fetch payment info' });
   }
 };
-
-// GET /api/teachers/:teacherId/payment-info
-export const getTeacherPaymentInfo = async (req: Request, res: Response) => {
-  try {
-    const { teacherId } = req.params;
-
-    const paymentInfo = await TeacherPaymentInfo.findOne({ teacherId });
-    if (!paymentInfo) {
-      return res.status(404).json({ success: false, message: 'Teacher payment info not found' });
-    }
-
-    // Return safe subset for students (no bank account numbers in full)
-    const safeData = {
-      bkashNumber: paymentInfo.bkashNumber,
-      nagadNumber: paymentInfo.nagadNumber,
-      accountName: paymentInfo.accountName,
-      instructions: paymentInfo.instructions,
-      bankDetails: paymentInfo.bankDetails ? {
-        bankName: paymentInfo.bankDetails.bankName,
-        accountName: paymentInfo.bankDetails.accountName,
-        // Mask account number for security
-        accountNumber: paymentInfo.bankDetails.accountNumber
-          ? `****${paymentInfo.bankDetails.accountNumber.slice(-4)}`
-          : undefined,
-        branchName: paymentInfo.bankDetails.branchName,
-      } : undefined,
-    };
-
-    return res.json({ success: true, data: safeData });
-  } catch (err: any) {
-    console.error('Error fetching teacher payment info:', err);
-    return res.status(500).json({ success: false, message: 'Failed to fetch teacher payment info' });
-  }
-};
-
-// ============================================
-// Payment Submission/Verification Endpoints
-// ============================================
 
 // POST /api/bookings/:id/payment/submit
 export const submitPaymentProof = async (req: Request, res: Response) => {
@@ -128,119 +219,133 @@ export const submitPaymentProof = async (req: Request, res: Response) => {
 
     // Validate required fields
     if (!method || !['bkash', 'nagad', 'bank'].includes(method)) {
-      return res.status(422).json({ success: false, message: 'Invalid payment method' });
+      return res.status(422).json({ success: false, message: 'Invalid payment method. Must be bkash, nagad, or bank.' });
     }
     if (!trxid || typeof trxid !== 'string' || trxid.trim().length === 0) {
-      return res.status(422).json({ success: false, message: 'Transaction ID is required' });
+      return res.status(422).json({ success: false, message: 'Transaction ID (trxid) is required' });
     }
 
-    const booking = await Booking.findById(id).populate({
-      path: 'gig',
-      select: 'teacher price title',
-    });
+    const booking = await Booking.findById(id)
+      .populate({
+        path: 'gig',
+        select: 'title price teacher',
+        populate: { path: 'teacher', select: 'name email' },
+      });
 
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    // Must be the booking's student
-    if (booking.student.toString() !== req.user._id.toString()) {
+    // Must be the booking student
+    const studentId = (booking as any).student?.toString();
+    if (studentId !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Only the booking student can submit payment proof' });
     }
 
     // Booking must be accepted
-    if (booking.status !== 'accepted') {
+    if ((booking as any).status !== 'accepted') {
       return res.status(400).json({ success: false, message: 'Booking must be accepted before payment submission' });
     }
 
-    // Must be using manual payment method
-    if ((booking as any).paymentMethodType !== 'manual') {
+    // Manual payment must be initialized and in correct status
+    const manualPayment = (booking as any).manualPayment;
+    if (!manualPayment || manualPayment.methodType !== 'manual') {
       return res.status(400).json({ success: false, message: 'This booking does not use manual payment' });
     }
 
-    const manualPayment = (booking as any).manualPayment || {};
-
-    // Check payment status allows submission
-    if (!['pending_manual', 'rejected'].includes(manualPayment.status)) {
+    const currentStatus = manualPayment.status;
+    if (!['pending_manual', 'rejected'].includes(currentStatus)) {
       return res.status(400).json({
         success: false,
-        message: `Cannot submit payment when status is ${manualPayment.status}`,
+        message: `Cannot submit payment proof when status is "${currentStatus}"`,
       });
     }
 
-    // Check submission count limit
-    if ((manualPayment.submissionCount || 0) >= MAX_SUBMISSION_COUNT) {
+    // Check submission count
+    const submissionCount = manualPayment.submissionCount || 0;
+    if (submissionCount >= MAX_SUBMISSION_COUNT) {
       return res.status(400).json({
         success: false,
-        message: `Maximum ${MAX_SUBMISSION_COUNT} submissions reached. Please contact admin.`,
+        message: `Maximum submission attempts (${MAX_SUBMISSION_COUNT}) reached. Please contact admin.`,
+        code: 'MAX_SUBMISSIONS_REACHED',
       });
     }
 
-    // Check submission window (12 hours after acceptance)
-    const acceptedAt = manualPayment.acceptedAt ? new Date(manualPayment.acceptedAt).getTime() : 0;
-    if (acceptedAt) {
-      const windowEnd = acceptedAt + PAYMENT_SUBMISSION_WINDOW_HOURS * 60 * 60 * 1000;
-      if (Date.now() > windowEnd) {
-        // Mark as expired
-        const prevStatus = manualPayment.status;
-        manualPayment.status = 'expired';
-        addAuditLog(booking, 'payment.expired', prevStatus, 'expired', 'system', 'Submission window expired');
-        await booking.save();
-        return res.status(400).json({
-          success: false,
-          message: 'Payment submission window has expired',
-        });
-      }
+    // Check submission window
+    if (manualPayment.acceptedAt && isSubmissionWindowExpired(manualPayment.acceptedAt)) {
+      (booking as any).manualPayment.status = 'expired';
+      addAuditLog(booking, 'payment.expired', currentStatus, 'expired', 'system', 'Submission window expired');
+      await booking.save();
+      return res.status(400).json({
+        success: false,
+        message: 'Payment submission window has expired',
+        code: 'SUBMISSION_WINDOW_EXPIRED',
+      });
     }
 
-    // Check for duplicate trxid
-    const gig = booking.gig as any;
-    const teacherId = gig?.teacher?._id || gig?.teacher;
+    // Check trxid uniqueness
+    const teacherId = (booking as any).gig?.teacher?._id?.toString() || (booking as any).gig?.teacher?.toString();
+    const trimmedTrxid = trxid.trim();
 
     try {
       await PaymentTrxRegistry.create({
-        trxid: trxid.trim(),
+        method,
+        trxid: trimmedTrxid,
         bookingId: booking._id,
         teacherId,
         studentId: req.user._id,
-        amount: amountPaid || manualPayment.amountExpected || gig?.price || 0,
-        method,
+        amount: amountPaid || manualPayment.amountExpected || 0,
       });
     } catch (err: any) {
       if (err.code === 11000) {
         return res.status(409).json({
           success: false,
-          message: 'This transaction ID has already been used. Please use a unique transaction ID.',
+          message: 'This transaction ID has already been used. Please provide a unique transaction ID.',
+          code: 'DUPLICATE_TRXID',
         });
       }
       throw err;
     }
 
-    // Update booking with payment proof
-    const prevStatus = manualPayment.status;
-    (booking as any).manualPayment = {
-      ...manualPayment,
-      status: 'submitted',
-      method,
-      trxid: trxid.trim(),
-      senderNumber: senderNumber?.trim() || undefined,
-      amountPaid: amountPaid || manualPayment.amountExpected,
-      screenshotUrl: screenshotUrl || undefined,
-      submittedAt: new Date(),
-      submissionCount: (manualPayment.submissionCount || 0) + 1,
-      amountExpected: manualPayment.amountExpected,
-      acceptedAt: manualPayment.acceptedAt,
-    };
+    // Fetch current teacher payment info for snapshot
+    const teacherPaymentInfo = await TeacherPaymentInfo.findOne({ teacherId });
+    const receiverSnapshot = teacherPaymentInfo
+      ? {
+          bkashNumber: teacherPaymentInfo.bkashNumber,
+          nagadNumber: teacherPaymentInfo.nagadNumber,
+          bankAccountName: teacherPaymentInfo.bankAccountName,
+          bankAccountNumber: teacherPaymentInfo.bankAccountNumber,
+          bankName: teacherPaymentInfo.bankName,
+          bankBranch: teacherPaymentInfo.bankBranch,
+          routingNumber: teacherPaymentInfo.routingNumber,
+          snapshotAt: new Date(),
+        }
+      : undefined;
 
-    addAuditLog(booking, 'payment.submitted', prevStatus, 'submitted', req.user._id.toString(), `TrxID: ${trxid.trim()}`);
+    // Update booking with payment proof
+    (booking as any).manualPayment.method = method;
+    (booking as any).manualPayment.trxid = trimmedTrxid;
+    (booking as any).manualPayment.senderNumber = senderNumber?.trim() || undefined;
+    (booking as any).manualPayment.amountPaid = amountPaid || manualPayment.amountExpected;
+    (booking as any).manualPayment.screenshotUrl = screenshotUrl || undefined;
+    (booking as any).manualPayment.submittedAt = new Date();
+    (booking as any).manualPayment.status = 'submitted';
+    (booking as any).manualPayment.submissionCount = submissionCount + 1;
+    (booking as any).manualPayment.receiverSnapshot = receiverSnapshot;
+    // Clear any previous rejection
+    (booking as any).manualPayment.rejectedAt = undefined;
+    (booking as any).manualPayment.rejectReason = undefined;
+
+    addAuditLog(booking, 'payment.submitted', currentStatus, 'submitted', req.user._id.toString(), `TrxID: ${trimmedTrxid}`);
+
     await booking.save();
 
     await logActivity({
       userId: req.user._id,
-      action: 'booking.payment.submit',
+      action: 'booking.payment.submitted',
       targetType: 'Booking',
       targetId: booking._id,
-      metadata: { method, trxid: trxid.trim() },
+      metadata: { method, trxid: trimmedTrxid, submissionCount: submissionCount + 1 },
       req,
     });
 
@@ -250,57 +355,67 @@ export const submitPaymentProof = async (req: Request, res: Response) => {
       data: {
         bookingId: booking._id,
         paymentStatus: 'submitted',
-        submissionCount: (booking as any).manualPayment.submissionCount,
+        submissionCount: submissionCount + 1,
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('Error submitting payment proof:', err);
     return res.status(500).json({ success: false, message: 'Failed to submit payment proof' });
   }
 };
+
+// ============================================
+// Teacher Verification Endpoints
+// ============================================
 
 // POST /api/bookings/:id/payment/verify
 export const verifyPayment = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const booking = await Booking.findById(id).populate({
-      path: 'gig',
-      select: 'teacher title',
-    });
+    const booking = await Booking.findById(id)
+      .populate({
+        path: 'gig',
+        select: 'title price teacher',
+      });
 
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    // Must be the teacher of this gig
-    const gig = booking.gig as any;
-    const teacherId = gig?.teacher?._id || gig?.teacher;
-    if (teacherId?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Only the gig teacher can verify payment' });
+    // Must be the booking teacher
+    const teacherId = (booking as any).gig?.teacher?.toString();
+    if (teacherId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Only the booking teacher can verify payment' });
     }
 
     const manualPayment = (booking as any).manualPayment;
     if (!manualPayment || manualPayment.status !== 'submitted') {
       return res.status(400).json({
         success: false,
-        message: 'Payment must be in submitted status to verify',
+        message: 'Payment must be in "submitted" status to verify',
       });
     }
 
-    // Update payment status
+    // Check verification window
+    if (manualPayment.submittedAt && isVerificationWindowExpired(manualPayment.submittedAt)) {
+      // Don't auto-expire on verify; teacher can still verify late
+      // But log a warning
+      console.warn(`Late verification for booking ${id}`);
+    }
+
     const prevStatus = manualPayment.status;
-    manualPayment.status = 'verified';
-    manualPayment.verifiedAt = new Date();
-    manualPayment.verifiedBy = req.user._id;
-    (booking as any).joinUnlocked = true;
+    (booking as any).manualPayment.status = 'verified';
+    (booking as any).manualPayment.verifiedAt = new Date();
+    (booking as any).manualPayment.verifiedBy = req.user._id;
 
     addAuditLog(booking, 'payment.verified', prevStatus, 'verified', req.user._id.toString());
+
     await booking.save();
 
     await logActivity({
       userId: req.user._id,
-      action: 'booking.payment.verify',
+      action: 'booking.payment.verified',
       targetType: 'Booking',
       targetId: booking._id,
       metadata: { trxid: manualPayment.trxid },
@@ -313,10 +428,9 @@ export const verifyPayment = async (req: Request, res: Response) => {
       data: {
         bookingId: booking._id,
         paymentStatus: 'verified',
-        joinUnlocked: true,
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('Error verifying payment:', err);
     return res.status(500).json({ success: false, message: 'Failed to verify payment' });
   }
@@ -328,137 +442,119 @@ export const rejectPayment = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { reason } = req.body;
 
-    const booking = await Booking.findById(id).populate({
-      path: 'gig',
-      select: 'teacher title',
-    });
+    if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+      return res.status(422).json({ success: false, message: 'Rejection reason is required' });
+    }
+
+    const booking = await Booking.findById(id)
+      .populate({
+        path: 'gig',
+        select: 'title price teacher',
+      });
 
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    // Must be the teacher of this gig
-    const gig = booking.gig as any;
-    const teacherId = gig?.teacher?._id || gig?.teacher;
-    if (teacherId?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Only the gig teacher can reject payment' });
+    // Must be the booking teacher
+    const teacherId = (booking as any).gig?.teacher?.toString();
+    if (teacherId !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Only the booking teacher can reject payment' });
     }
 
     const manualPayment = (booking as any).manualPayment;
     if (!manualPayment || manualPayment.status !== 'submitted') {
       return res.status(400).json({
         success: false,
-        message: 'Payment must be in submitted status to reject',
+        message: 'Payment must be in "submitted" status to reject',
       });
     }
 
-    // Update payment status
     const prevStatus = manualPayment.status;
-    manualPayment.status = 'rejected';
-    manualPayment.rejectedAt = new Date();
-    manualPayment.rejectReason = reason || 'No reason provided';
-    (booking as any).joinUnlocked = false;
+    (booking as any).manualPayment.status = 'rejected';
+    (booking as any).manualPayment.rejectedAt = new Date();
+    (booking as any).manualPayment.rejectReason = reason.trim();
 
-    addAuditLog(booking, 'payment.rejected', prevStatus, 'rejected', req.user._id.toString(), reason);
+    addAuditLog(booking, 'payment.rejected', prevStatus, 'rejected', req.user._id.toString(), reason.trim());
+
     await booking.save();
 
     await logActivity({
       userId: req.user._id,
-      action: 'booking.payment.reject',
+      action: 'booking.payment.rejected',
       targetType: 'Booking',
       targetId: booking._id,
-      metadata: { trxid: manualPayment.trxid, reason },
+      metadata: { trxid: manualPayment.trxid, reason: reason.trim() },
       req,
     });
 
     return res.json({
       success: true,
-      message: 'Payment rejected. Student will be notified.',
+      message: 'Payment rejected. Student can resubmit with correct details.',
       data: {
         bookingId: booking._id,
         paymentStatus: 'rejected',
-        rejectReason: manualPayment.rejectReason,
         submissionCount: manualPayment.submissionCount,
         maxSubmissions: MAX_SUBMISSION_COUNT,
-        canResubmit: manualPayment.submissionCount < MAX_SUBMISSION_COUNT,
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('Error rejecting payment:', err);
     return res.status(500).json({ success: false, message: 'Failed to reject payment' });
   }
 };
 
+// ============================================
+// Join Class Endpoint (Gated)
+// ============================================
+
 // GET /api/bookings/:id/join
-export const getJoinDetails = async (req: Request, res: Response) => {
+export const joinClass = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const booking = await Booking.findById(id).populate({
-      path: 'gig',
-      select: 'teacher title duration price',
-      populate: { path: 'teacher', select: 'name email avatar' },
-    }).populate('student', 'name email');
+    const booking = await Booking.findById(id)
+      .populate({
+        path: 'gig',
+        select: 'title price duration teacher',
+        populate: { path: 'teacher', select: 'name email avatar' },
+      })
+      .populate('student', 'name email');
 
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    // Must be student or teacher
-    const gig = booking.gig as any;
-    const teacherId = gig?.teacher?._id || gig?.teacher;
-    const studentId = (booking.student as any)?._id || booking.student;
-    const isTeacher = teacherId?.toString() === req.user._id.toString();
-    const isStudent = studentId?.toString() === req.user._id.toString();
+    // Authorization: only booking student or teacher
+    const studentId = (booking as any).student?._id?.toString() || (booking as any).student?.toString();
+    const teacherId = (booking as any).gig?.teacher?._id?.toString() || (booking as any).gig?.teacher?.toString();
+    const isStudent = studentId === req.user._id.toString();
+    const isTeacher = teacherId === req.user._id.toString();
 
-    if (!isTeacher && !isStudent) {
+    if (!isStudent && !isTeacher) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
     // Booking must be accepted
-    if (booking.status !== 'accepted') {
+    if ((booking as any).status !== 'accepted') {
       return res.status(403).json({
         success: false,
         message: 'Booking is not accepted yet',
-        data: { status: booking.status },
+        paymentStatus: (booking as any).manualPayment?.status,
       });
     }
 
-    // Check payment status for manual payment bookings
-    const paymentMethodType = (booking as any).paymentMethodType;
-    if (paymentMethodType === 'manual') {
-      const manualPayment = (booking as any).manualPayment;
-      const joinUnlocked = (booking as any).joinUnlocked === true;
-
-      if (!joinUnlocked || manualPayment?.status !== 'verified') {
+    // Check manual payment verification (for manual payment bookings)
+    const manualPayment = (booking as any).manualPayment;
+    if (manualPayment && manualPayment.methodType === 'manual') {
+      if (manualPayment.status !== 'verified') {
         return res.status(403).json({
           success: false,
-          message: 'Payment verification required to join',
-          data: {
-            paymentStatus: manualPayment?.status || 'pending_manual',
-            paymentRequired: true,
-            joinUnlocked: false,
-          },
-        });
-      }
-    }
-
-    // For SSLCommerz payments, check existing Payment model (existing logic)
-    // This keeps backwards compatibility
-    if (paymentMethodType === 'sslcommerz' || paymentMethodType === 'none') {
-      // Import Payment model inline to avoid circular deps
-      const Payment = require('../models/Payment').default;
-      const paid = await Payment.findOne({
-        bookingId: booking._id,
-        studentId: req.user._id,
-        status: 'SUCCESS',
-      }).select('_id');
-
-      if (!paid && isStudent) {
-        return res.status(402).json({
-          success: false,
-          message: 'Payment required to join this class',
-          data: { paymentRequired: true },
+          message: 'Payment verification required to join class',
+          code: 'PAYMENT_NOT_VERIFIED',
+          paymentStatus: manualPayment.status,
+          submissionCount: manualPayment.submissionCount || 0,
+          maxSubmissions: MAX_SUBMISSION_COUNT,
         });
       }
     }
@@ -467,110 +563,96 @@ export const getJoinDetails = async (req: Request, res: Response) => {
     const scheduled = (booking as any).scheduledAt || (booking as any).scheduledDate;
     const startTs = new Date(scheduled).getTime();
     if (!startTs || isNaN(startTs)) {
-      return res.status(400).json({ success: false, message: 'Invalid scheduled date/time' });
+      return res.status(400).json({ success: false, message: 'Invalid scheduled date/time for this booking' });
     }
-
-    const durationMin = gig?.duration || 90;
+    const durationMin = (booking as any).gig?.duration || 90;
     const windowOpen = startTs - 15 * 60 * 1000;
     const endTs = startTs + durationMin * 60 * 1000;
     const windowClose = endTs + 60 * 60 * 1000;
     const now = Date.now();
 
     if (now < windowOpen) {
-      return res.status(403).json({
-        success: false,
-        message: 'Join window not open yet',
-        data: { windowOpensAt: new Date(windowOpen).toISOString() },
-      });
+      return res.status(403).json({ success: false, message: 'Join window not open yet' });
     }
     if (now > windowClose) {
-      return res.status(403).json({
-        success: false,
-        message: 'Join window has closed for this class',
-      });
+      return res.status(403).json({ success: false, message: 'Join window has closed for this class' });
     }
 
     // Return meeting details
-    const meetingData = {
-      bookingId: booking._id,
-      meetingRoomId: (booking as any).meetingRoomId,
-      meetingLink: (booking as any).meetingLink,
-      meetingPassword: (booking as any).meetingPassword,
-      roleForThisBooking: isTeacher ? 'teacher' : 'student',
-      gig: {
-        title: gig?.title,
-        duration: gig?.duration,
+    return res.json({
+      success: true,
+      data: {
+        bookingId: booking._id,
+        meetingLink: (booking as any).meetingLink,
+        meetingRoomId: (booking as any).meetingRoomId,
+        meetingPassword: (booking as any).meetingPassword,
+        roleForThisBooking: isTeacher ? 'teacher' : 'student',
+        gig: (booking as any).gig,
+        scheduledAt: (booking as any).scheduledAt,
+        duration: durationMin,
       },
-      scheduledAt: scheduled,
-    };
-
-    return res.json({ success: true, data: meetingData });
-  } catch (err: any) {
-    console.error('Error getting join details:', err);
-    return res.status(500).json({ success: false, message: 'Failed to get join details' });
+    });
+  } catch (err) {
+    console.error('Error joining class:', err);
+    return res.status(500).json({ success: false, message: 'Failed to get meeting details' });
   }
 };
 
-// GET /api/bookings/:id/payment-status
+// ============================================
+// Get Payment Status (for polling)
+// ============================================
+
+// GET /api/bookings/:id/payment/status
 export const getPaymentStatus = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const booking = await Booking.findById(id).populate({
-      path: 'gig',
-      select: 'teacher title price',
-      populate: { path: 'teacher', select: 'name email' },
-    });
+    const booking = await Booking.findById(id)
+      .select('student gig manualPayment paymentRefCode status')
+      .populate({
+        path: 'gig',
+        select: 'teacher',
+      });
 
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    // Must be student or teacher
-    const gig = booking.gig as any;
-    const teacherId = gig?.teacher?._id || gig?.teacher;
-    const studentId = booking.student;
-    const isTeacher = teacherId?.toString() === req.user._id.toString();
-    const isStudent = studentId?.toString() === req.user._id.toString();
+    // Authorization
+    const studentId = (booking as any).student?.toString();
+    const teacherId = (booking as any).gig?.teacher?.toString();
+    const isParticipant = studentId === req.user._id.toString() || teacherId === req.user._id.toString();
 
-    if (!isTeacher && !isStudent) {
+    if (!isParticipant) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const manualPayment = (booking as any).manualPayment || {};
-    const paymentMethodType = (booking as any).paymentMethodType || 'none';
+    const manualPayment = (booking as any).manualPayment;
 
     return res.json({
       success: true,
       data: {
         bookingId: booking._id,
-        paymentMethodType,
+        bookingStatus: (booking as any).status,
         paymentRefCode: (booking as any).paymentRefCode,
-        manualPayment: {
-          status: manualPayment.status || 'pending_manual',
-          method: manualPayment.method,
-          amountExpected: manualPayment.amountExpected || gig?.price,
-          amountPaid: manualPayment.amountPaid,
-          trxid: manualPayment.trxid,
-          submittedAt: manualPayment.submittedAt,
-          verifiedAt: manualPayment.verifiedAt,
-          rejectedAt: manualPayment.rejectedAt,
-          rejectReason: manualPayment.rejectReason,
-          submissionCount: manualPayment.submissionCount || 0,
-          maxSubmissions: MAX_SUBMISSION_COUNT,
-          canSubmit: ['pending_manual', 'rejected'].includes(manualPayment.status) &&
-            (manualPayment.submissionCount || 0) < MAX_SUBMISSION_COUNT,
-        },
-        joinUnlocked: (booking as any).joinUnlocked === true,
-        teacher: {
-          _id: teacherId,
-          name: gig?.teacher?.name,
-        },
-        gigPrice: gig?.price,
+        methodType: manualPayment?.methodType,
+        paymentStatus: manualPayment?.status || 'pending_manual',
+        method: manualPayment?.method,
+        trxid: manualPayment?.trxid,
+        amountExpected: manualPayment?.amountExpected,
+        amountPaid: manualPayment?.amountPaid,
+        submittedAt: manualPayment?.submittedAt,
+        verifiedAt: manualPayment?.verifiedAt,
+        rejectedAt: manualPayment?.rejectedAt,
+        rejectReason: manualPayment?.rejectReason,
+        submissionCount: manualPayment?.submissionCount || 0,
+        maxSubmissions: MAX_SUBMISSION_COUNT,
+        screenshotUrl: manualPayment?.screenshotUrl,
+        senderNumber: manualPayment?.senderNumber,
       },
     });
-  } catch (err: any) {
-    console.error('Error getting payment status:', err);
-    return res.status(500).json({ success: false, message: 'Failed to get payment status' });
+  } catch (err) {
+    console.error('Error fetching payment status:', err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch payment status' });
   }
 };

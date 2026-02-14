@@ -3,6 +3,7 @@ import Booking from '../models/Booking';
 import Gig from '../models/Gig';
 import Payment from '../models/Payment';
 import { logActivity } from '../utils/activityLogger';
+import { invalidateCache, invalidateRelatedCache } from '../middleware/cache';
 import crypto from 'crypto';
 
 // Helper to slugify gig title
@@ -209,9 +210,11 @@ export const getBookingByRoom = async (req: Request, res: Response) => {
     }
 
     // Enforce per-booking payment for students before joining
+    // Check both SSLCommerz payments AND manual payment verification
     if (isStudent) {
-      const paid = await Payment.findOne({ bookingId: (booking as any)._id, studentId: req.user._id, status: 'SUCCESS' }).select('_id');
-      if (!paid) {
+      const sslPaid = await Payment.findOne({ bookingId: (booking as any)._id, studentId: req.user._id, status: 'SUCCESS' }).select('_id');
+      const manualVerified = (booking as any).manualPayment?.status === 'verified';
+      if (!sslPaid && !manualVerified) {
         return res.status(402).json({ success: false, message: 'Payment required to join this class' });
       }
     }
@@ -271,6 +274,11 @@ export const createBooking = async (req: Request, res: Response) => {
     }
 
     const booking = await Booking.create(req.body);
+
+    // Invalidate cache for student and teacher
+    const studentId = req.user._id.toString();
+    const teacherId = gig.teacher.toString();
+    await invalidateRelatedCache([studentId, teacherId], 'bookings');
 
     await logActivity({
       userId: (req as any)?.user?._id,
@@ -334,19 +342,17 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
         (booking as any).meetingPassword = crypto.randomBytes(8).toString('hex');
       }
 
-      // Initialize manual payment if enabled (check if teacher wants manual payment)
-      // Default to manual payment for now; can be made configurable per-teacher later
-      const useManualPayment = String(process.env.ENABLE_MANUAL_PAYMENT || 'true').toLowerCase() === 'true';
+      // Initialize manual payment when booking is accepted
+      // Check if manual payment is enabled (default: true for now)
+      const useManualPayment = String(process.env.USE_MANUAL_PAYMENT || 'true').toLowerCase() === 'true';
       if (useManualPayment) {
-        (booking as any).paymentMethodType = 'manual';
         (booking as any).manualPayment = {
+          methodType: 'manual',
           status: 'pending_manual',
           amountExpected: gig?.price || 0,
           submissionCount: 0,
           acceptedAt: new Date(),
         };
-        (booking as any).joinUnlocked = false;
-
         // Add audit log entry
         if (!(booking as any).paymentAuditLog) {
           (booking as any).paymentAuditLog = [];
@@ -356,7 +362,7 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
           fromStatus: undefined,
           toStatus: 'pending_manual',
           performedBy: req.user._id,
-          note: 'Booking accepted, manual payment required',
+          note: 'Manual payment initialized on booking acceptance',
           timestamp: new Date(),
         });
       }
@@ -368,6 +374,13 @@ export const updateBookingStatus = async (req: Request, res: Response) => {
     }
 
     await booking.save();
+
+    // Invalidate cache for student and teacher
+    const studentId = booking.student.toString();
+    const teacherId = gig?.teacher.toString();
+    if (studentId && teacherId) {
+      await invalidateRelatedCache([studentId, teacherId], 'bookings');
+    }
 
     await logActivity({
       userId: (req as any)?.user?._id,

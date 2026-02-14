@@ -17,37 +17,20 @@ export default function PostAuthPage() {
         return
       }
       try {
-        // Ensure backend user and JWT are ready
-        const email = user?.primaryEmailAddress?.emailAddress
-        const name = user?.fullName || undefined
-        if (email) {
-          const res = await api.post("/auth/clerk-sync", { email, name })
-          const { token, user: backendUser } = res.data
-          localStorage.setItem("token", token)
-          localStorage.setItem("user", JSON.stringify(backendUser))
-          if (backendUser?.role) {
-            localStorage.setItem("role", backendUser.role)
-          }
-          // Determine if onboarding is needed
-          // Only show onboarding if user hasn't completed it yet (isOnboarded is explicitly false or undefined)
-          // If isOnboarded is true, skip onboarding even if other fields are missing (they can be updated later)
-          const isOnboarded = backendUser?.isOnboarded === true
-          const role = backendUser?.role || localStorage.getItem("role")
+        // Providers already synced backend user/JWT, just read from localStorage
+        const backendUserStr = localStorage.getItem("user")
+        const backendUser = backendUserStr ? JSON.parse(backendUserStr) : null
+        const role = backendUser?.role || localStorage.getItem("role")
+        
+        // Determine if onboarding is needed
+        const isOnboarded = backendUser?.isOnboarded === true
+        const needsOnboarding = !isOnboarded && !role
 
-          // Only require onboarding if:
-          // 1. User hasn't been onboarded yet (isOnboarded is not true)
-          // 2. AND user is missing critical info (no role)
-          // Note: name can be updated later, so we don't require it for skipping onboarding
-          const needsOnboarding = !isOnboarded && !role
-
-          if (needsOnboarding) {
-            router.replace("/onboarding")
-            return
-          }
-          router.replace("/dashboard")
-        } else {
+        if (needsOnboarding) {
           router.replace("/onboarding")
+          return
         }
+        router.replace("/dashboard")
       } catch (e) {
         router.replace("/onboarding")
       }

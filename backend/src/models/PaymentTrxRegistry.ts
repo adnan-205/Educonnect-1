@@ -1,22 +1,27 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IPaymentTrxRegistry extends Document {
+  method: 'bkash' | 'nagad' | 'bank';
   trxid: string;
   bookingId: mongoose.Types.ObjectId;
   teacherId: mongoose.Types.ObjectId;
   studentId: mongoose.Types.ObjectId;
   amount: number;
-  method: 'bkash' | 'nagad' | 'bank';
   createdAt: Date;
 }
 
 const paymentTrxRegistrySchema = new Schema<IPaymentTrxRegistry>(
   {
+    method: {
+      type: String,
+      enum: ['bkash', 'nagad', 'bank'],
+      required: true,
+    },
     trxid: {
       type: String,
       required: true,
       trim: true,
-      index: true,
+      maxlength: 100,
     },
     bookingId: {
       type: Schema.Types.ObjectId,
@@ -41,17 +46,15 @@ const paymentTrxRegistrySchema = new Schema<IPaymentTrxRegistry>(
       required: true,
       min: 0,
     },
-    method: {
-      type: String,
-      enum: ['bkash', 'nagad', 'bank'],
-      required: true,
-    },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
-// Unique index on trxid to prevent duplicate transaction IDs globally
-// If you want per-teacher uniqueness instead, use: { trxid: 1, teacherId: 1 }
-paymentTrxRegistrySchema.index({ trxid: 1 }, { unique: true });
+// Unique index on (method, trxid) to prevent duplicate transaction IDs per payment method
+paymentTrxRegistrySchema.index({ method: 1, trxid: 1 }, { unique: true });
 
-export default mongoose.model<IPaymentTrxRegistry>('PaymentTrxRegistry', paymentTrxRegistrySchema);
+const PaymentTrxRegistry: Model<IPaymentTrxRegistry> =
+  mongoose.models.PaymentTrxRegistry ||
+  mongoose.model<IPaymentTrxRegistry>('PaymentTrxRegistry', paymentTrxRegistrySchema);
+
+export default PaymentTrxRegistry;

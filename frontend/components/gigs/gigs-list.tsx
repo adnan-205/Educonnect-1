@@ -78,7 +78,7 @@ export default function GigsList() {
             <p className="text-xs sm:text-sm mb-2 line-clamp-2">{gig.description}</p>
             <div className="flex flex-col sm:flex-row justify-between gap-1 sm:gap-0 text-xs sm:text-sm">
               <span>Duration: {gig.duration} mins</span>
-              <span className="font-semibold">${gig.price}</span>
+              <span className="font-semibold">৳{gig.price}</span>
             </div>
             <div className="mt-2">
               <span className="text-xs bg-gray-100 px-2 py-1 rounded">

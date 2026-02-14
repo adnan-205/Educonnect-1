@@ -18,6 +18,7 @@ import reviewRoutes from './routes/reviews';
 import walletRoutes from './routes/wallet';
 import adminRoutes from './routes/admin';
 import manualPaymentRoutes from './routes/manualPayment';
+import { swaggerSetup } from './config/swagger';
 
 // Load env vars
 dotenv.config();
@@ -232,6 +233,10 @@ app.get('/', (req, res) => {
     note: 'All endpoints starting with /api require authentication except health checks'
   });
 });
+
+// Swagger API Documentation
+const swagger = swaggerSetup();
+app.use('/api-docs', swagger.serve, swagger.setup);
 
 // Health check routes (before authentication)
 app.use('/health', healthRoutes);
