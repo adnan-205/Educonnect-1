@@ -138,7 +138,7 @@ export default function VideoCallPage() {
     setSubmittingReview(true);
     try {
       await reviewsApi.createReview(gigId, {
-        rating: reviewRating,
+        rating: Math.min(5, Math.max(1, Number(reviewRating))),
         comment: reviewComment.trim() || undefined,
       });
       toast({ title: 'Review submitted', description: 'Thank you for your feedback!' });

@@ -20,6 +20,15 @@ export function usePayment({ gigId, bookingId, pollMs = 10000, autoStart = true,
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Track mount status so async callbacks never update state after unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const checkStatus = useCallback(async () => {
     if (!gigId) return;
@@ -29,12 +38,16 @@ export function usePayment({ gigId, bookingId, pollMs = 10000, autoStart = true,
         ? await paymentsApi.getBookingStatus(bookingId)
         : await paymentsApi.getStatus(gigId);
       const paid = !!res?.paid;
-      setStatus(paid ? 'paid' : 'unpaid');
-      setError(null);
+      if (isMountedRef.current) {
+        setStatus(paid ? 'paid' : 'unpaid');
+        setError(null);
+      }
       return paid;
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Failed to check payment status');
-      setStatus('error');
+      if (isMountedRef.current) {
+        setError(e?.response?.data?.message || e?.message || 'Failed to check payment status');
+        setStatus('error');
+      }
       return false;
     }
   }, [gigId, bookingId]);

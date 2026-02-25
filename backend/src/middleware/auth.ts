@@ -28,6 +28,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
     req.user = user as any;
     next();
   } catch (err) {
+    console.error('[Auth] JWT verification failed:', err);
     return res.status(401).json({
       success: false,
       message: 'Not authorized to access this route',

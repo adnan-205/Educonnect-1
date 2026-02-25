@@ -84,7 +84,9 @@ export class PaymentsService {
     if (updated?.bookingId) {
       try {
         await bookingRepo.updateStatus(updated.bookingId.toString(), 'accepted');
-      } catch {}
+      } catch (e) {
+        console.error('[PaymentService] CRITICAL: Payment marked SUCCESS but booking status update failed. bookingId:', updated.bookingId.toString(), 'Error:', e);
+      }
     }
     
     // Credit teacher's wallet after successful payment

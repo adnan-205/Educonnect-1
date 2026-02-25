@@ -54,7 +54,7 @@ export default function ReviewForm({ gigId }: { gigId: string }) {
     }
     try {
       setSubmitting(true)
-      await reviewsApi.createReview(gigId, { rating, title: title.trim() || undefined, comment: comment.trim() || undefined })
+      await reviewsApi.createReview(gigId, { rating: Math.min(5, Math.max(1, Number(rating))), title: title.trim() || undefined, comment: comment.trim() || undefined })
       toast({ title: 'Thanks for your review!' })
       setEligible(false)
     } catch (e: any) {

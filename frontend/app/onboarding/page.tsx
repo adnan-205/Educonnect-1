@@ -61,7 +61,7 @@ export default function OnboardingPage() {
 
     try {
       setLoading(true)
-      const payload: any = { name, role, marketingSource, isOnboarded: true }
+      const payload: any = { name, role: (role as string).toLowerCase() as 'student' | 'teacher', marketingSource, isOnboarded: true }
       const res = await usersApi.updateMe(payload)
       const updated = res?.data
       if (updated) {

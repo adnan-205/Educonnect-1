@@ -47,7 +47,8 @@ export default function DashboardPage() {
                 setUserName(clerkUser.fullName || clerkUser.firstName || clerkUser.username || "User")
             }
         }
-    }, [clerkUser, userName])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [clerkUser])
 
     useEffect(() => {
         const load = async () => {

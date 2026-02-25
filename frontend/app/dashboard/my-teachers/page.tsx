@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -57,7 +57,7 @@ export default function MyTeachersPage() {
 
     useEffect(() => {
         filterTeachers()
-    }, [teachers, searchTerm])
+    }, [filterTeachers])
 
     const fetchMyTeachers = async () => {
         try {
@@ -174,7 +174,7 @@ export default function MyTeachersPage() {
         }
     }
 
-    const filterTeachers = () => {
+    const filterTeachers = useCallback(() => {
         let filtered = teachers
 
         if (searchTerm) {
@@ -191,7 +191,7 @@ export default function MyTeachersPage() {
         filtered.sort((a, b) => b.completedClasses - a.completedClasses)
 
         setFilteredTeachers(filtered)
-    }
+    }, [teachers, searchTerm])
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString()

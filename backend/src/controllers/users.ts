@@ -119,7 +119,9 @@ export const updateMe = async (req: Request, res: Response) => {
         metadata: { changedKeys: Object.keys(patch) },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
 
     res.json({ success: true, data: updated });
   } catch (err) {

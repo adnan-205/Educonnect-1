@@ -79,7 +79,7 @@ export default function BookGigPage() {
 
       await bookingsApi.createBooking({
         gig: gig._id,
-        scheduledDate: form.scheduledDate,
+        scheduledDate: new Date(form.scheduledDate).toISOString(),
         scheduledTime: form.scheduledTime,
         scheduledAt,
         timeZone: tz,

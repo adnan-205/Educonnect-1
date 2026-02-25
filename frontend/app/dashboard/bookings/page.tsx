@@ -235,17 +235,21 @@ export default function BookingsPage() {
         })
         if (!needsPoll) return
 
+        let isMounted = true
         const interval = setInterval(async () => {
             // Skip polling when tab is hidden
             if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
             try {
-                await loadBookings()
+                if (isMounted) await loadBookings()
             } catch {
                 // ignore polling errors
             }
         }, 20000) // Poll every 20 seconds
 
-        return () => clearInterval(interval)
+        return () => {
+            isMounted = false
+            clearInterval(interval)
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [bookings.length, Object.keys(manualPaymentMap).length, loading])
 

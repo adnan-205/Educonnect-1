@@ -135,7 +135,7 @@ export default function StudentDashboard() {
     try {
       const bookingData = {
         gig: selectedGig._id,
-        scheduledDate: bookingForm.scheduledDate,
+        scheduledDate: new Date(bookingForm.scheduledDate).toISOString(),
         scheduledTime: bookingForm.scheduledTime
       }
 

@@ -154,7 +154,9 @@ export const createGig = async (req: Request, res: Response) => {
         metadata: { title: payload.title, price: payload.price, duration: payload.duration, category: payload.category },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
     res.status(201).json({
       success: true,
       data: gig,
@@ -212,7 +214,9 @@ export const updateGig = async (req: Request, res: Response) => {
         metadata: { updateKeys: Object.keys(updateDoc || {}) },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
     res.json({
       success: true,
       data: gig,
@@ -255,7 +259,9 @@ export const deleteGig = async (req: Request, res: Response) => {
         metadata: { title: (gig as any)?.title },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
 
     res.json({
       success: true,

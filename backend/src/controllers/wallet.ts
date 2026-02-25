@@ -109,7 +109,9 @@ export const requestWithdrawal = async (req: Request, res: Response) => {
         metadata: { amount: transaction?.netAmount || parseFloat(amount), method: withdrawalMethod },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
 
     return res.status(201).json({
       success: true,
@@ -181,7 +183,9 @@ export const approveWithdrawal = async (req: Request, res: Response) => {
         metadata: { transactionId, amount: (transaction as any)?.amount },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
 
     return res.json({
       success: true,
@@ -190,7 +194,7 @@ export const approveWithdrawal = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('approveWithdrawal error:', error);
-    return res.status(400).json({
+    return res.status(500).json({
       success: false,
       message: error.message || 'Failed to approve withdrawal',
     });
@@ -234,7 +238,9 @@ export const rejectWithdrawal = async (req: Request, res: Response) => {
         metadata: { transactionId, reason },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
 
     return res.json({
       success: true,
@@ -243,7 +249,7 @@ export const rejectWithdrawal = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('rejectWithdrawal error:', error);
-    return res.status(400).json({
+    return res.status(500).json({
       success: false,
       message: error.message || 'Failed to reject withdrawal',
     });

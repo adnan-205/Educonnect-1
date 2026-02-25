@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -62,7 +62,7 @@ export default function BookClassesPage() {
 
     useEffect(() => {
         filterGigs()
-    }, [gigs, searchTerm, selectedCategory, priceRange])
+    }, [filterGigs])
 
     const fetchGigs = async () => {
         try {
@@ -80,7 +80,7 @@ export default function BookClassesPage() {
         }
     }
 
-    const filterGigs = () => {
+    const filterGigs = useCallback(() => {
         let filtered = gigs
 
         // Search filter
@@ -112,7 +112,7 @@ export default function BookClassesPage() {
         }
 
         setFilteredGigs(filtered)
-    }
+    }, [gigs, searchTerm, selectedCategory, priceRange])
 
     const handleBookClass = (gigId: string) => {
         // Route to booking page where student selects date/time

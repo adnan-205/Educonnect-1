@@ -257,7 +257,9 @@ export const createReview = async (req: Request, res: Response) => {
         metadata: { gigId: String(gig._id), teacherId: String(gig.teacher), rating: ratingNum },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
 
     res.status(201).json({ success: true, data: doc });
   } catch (err: any) {
@@ -307,7 +309,9 @@ export const updateReview = async (req: Request, res: Response) => {
         metadata: { changed: Object.keys(update), delta },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
 
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -350,7 +354,9 @@ export const replyToReview = async (req: Request, res: Response) => {
         metadata: { gigId: String(doc.gig) },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
 
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -386,7 +392,9 @@ export const deleteReview = async (req: Request, res: Response) => {
         metadata: { gigId: String((doc as any).gig) },
         req,
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[Activity] logActivity failed (non-critical):', (e as any)?.message);
+    }
 
     res.json({ success: true, data: {} });
   } catch (err) {

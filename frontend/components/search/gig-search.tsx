@@ -45,15 +45,17 @@ export function GigSearch({ className }: GigSearchProps) {
   const [allGigs, setAllGigs] = useState<Gig[]>([])
 
   useEffect(() => {
+    let cancelled = false
     const load = async () => {
       try {
         const res = await gigsApi.getAllGigs()
-        setAllGigs(res?.data || [])
+        if (!cancelled) setAllGigs(res?.data || [])
       } catch (e) {
         // ignore
       }
     }
     load()
+    return () => { cancelled = true }
   }, [])
 
   const subjects = Array.from(new Set(allGigs.map(g => g.category)))

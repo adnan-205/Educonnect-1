@@ -173,19 +173,9 @@ export const register = async (req: Request, res: Response) => {
         user.role = 'admin' as any;
         await user.save();
       }
-    } catch { }
-
-    // Promote to admin if email allowlisted
-    try {
-      const allow = (process.env.ADMIN_EMAILS || '')
-        .split(',')
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean);
-      if (email && allow.includes(email.toLowerCase()) && user.role !== 'admin') {
-        user.role = 'admin' as any;
-        await (user as any).save?.();
-      }
-    } catch { }
+    } catch (e) {
+      console.warn('[Auth] Admin promotion failed for email:', email, e);
+    }
 
     // Create token
     const token = jwt.sign(
@@ -209,6 +199,7 @@ export const register = async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
+    console.error('[Auth] register error:', err);
     res.status(500).json({
       success: false,
       message: 'Error in user registration',
@@ -369,6 +360,7 @@ export const login = async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
+    console.error('[Auth] login error:', err);
     res.status(500).json({
       success: false,
       message: 'Error in user login',
